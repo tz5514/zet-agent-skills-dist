@@ -1,0 +1,99 @@
+{
+  "package_name": "zet-agent-skills",
+  "repository": "tz5514/zet-agent-skills-dist",
+  "skills": [
+    {
+      "files": [
+        "ADR-FORMAT.md",
+        "QUALITY-REVIEW-PROMPT-BLOCKS.md",
+        "QUALITY-REVIEW-PROMPTS.md",
+        "SCAN-SUPERSESSION-PROMPT.md",
+        "SKILL.md",
+        "scripts/adr_id.py",
+        "scripts/adr_subfolder.py",
+        "scripts/atomicity_lint.py",
+        "scripts/conflict_disposition.py",
+        "scripts/context_derivation.py",
+        "scripts/description_index.py",
+        "scripts/live_atomic_decision_corpus.py",
+        "scripts/produce_for_hitl_contract.py",
+        "scripts/quality_review_contract.py",
+        "scripts/review_prompt_assembly.py",
+        "scripts/review_verdict_report.py",
+        "scripts/revise_and_promote_contract.py",
+        "scripts/revise_contract.py",
+        "scripts/scan_candidates.py",
+        "scripts/scan_rewrite_contract.py",
+        "scripts/scan_supersession_delivery.py",
+        "scripts/scan_supersession_input.py",
+        "scripts/scan_supersession_ledger.py",
+        "scripts/scan_supersession_packet.py",
+        "scripts/scan_supersession_result.py",
+        "scripts/status_calculator.py",
+        "scripts/supersession_converter.py",
+        "scripts/supersession_mark_back.py",
+        "scripts/supersession_pairs.py"
+      ],
+      "name": "adr"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/migrate_adr_format.py"
+      ],
+      "name": "adr-format-migration"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/detect_runtime.py",
+        "scripts/extract_claude_code.py",
+        "scripts/extract_codex.py",
+        "scripts/extract_grill_session.py"
+      ],
+      "name": "extract-grill-session"
+    },
+    {
+      "files": [
+        "SKILL.md"
+      ],
+      "name": "forge"
+    },
+    {
+      "files": [
+        "SKILL.md"
+      ],
+      "name": "forge-agent"
+    },
+    {
+      "files": [
+        "CONTEXT-FORMAT.md",
+        "OUTPUT-FORMAT.md",
+        "SKILL.md"
+      ],
+      "name": "grill-with-docs"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/adr_reference_block.py",
+        "scripts/path_existence_check.py",
+        "templates/related-adrs-blocks.md"
+      ],
+      "name": "to-prd"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/detect_runtime.py",
+        "scripts/locate_claude_code.py",
+        "scripts/locate_codex.py",
+        "scripts/locate_cursor.py",
+        "scripts/main.py"
+      ],
+      "name": "transcript-path"
+    }
+  ],
+  "source_commit": "8dbb9727ff880598e8933df0e61b25f46a427769",
+  "source_dirty": true
+}
