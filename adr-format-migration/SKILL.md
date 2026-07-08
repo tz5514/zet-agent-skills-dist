@@ -1,6 +1,6 @@
 ---
 name: adr-format-migration
-description: One-shot mechanical migration for a bounded context's ADR files: compress supersession pairs, rename legacy ADR filenames to date-random ids, rewrite frontmatter adr links, and emit an old-id to new-id map.
+description: "One-shot mechanical migration for a bounded context's ADR files: compress supersession pairs, rename legacy ADR filenames to date-random ids, rewrite frontmatter adr links, and emit an old-id to new-id map."
 ---
 
 # ADR Format Migration

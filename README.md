@@ -3,7 +3,7 @@
 Install with skills.sh:
 
 ```bash
-npx skills add tz5514/zet-agent-skills-dist -g -a claude-code
+npx skills add tz5514/zet-agent-skills-dist -g
 ```
 
 Update:
