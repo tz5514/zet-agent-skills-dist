@@ -1,15 +1,16 @@
 ---
 name: extract-grill-session
-description: Extract a clean dialogue from an agent session transcript — only the human-typed prompts and the agent's text outputs, in chronological order, never truncated. Thinking blocks, tool calls/results, and system/skill-injected user messages are stripped. Use when the user points at a session transcript .jsonl and wants just the conversation (prompts + replies) to re-read or archive, or asks to extract a grill/design session's pure dialogue. Supports Claude Code and Codex transcripts (auto-detected).
+description: Extract a clean dialogue from an agent session transcript — only the human-typed prompts and the agent's text outputs, in chronological order, never truncated. Thinking blocks, tool calls/results, and system/skill-injected user messages are stripped. Use when the user points at a session transcript .jsonl and wants just the conversation (prompts + replies) to re-read or archive, or asks to extract a grill/design session's pure dialogue. Supports Claude Code, cursor-agent, and Codex transcripts (auto-detected).
+disable-model-invocation: true
 ---
 
 # extract-grill-session
 
 Turn an agent session transcript (jsonl) into a clean conversation: only
 what the human actually typed and what the agent replied — chronological, full
-text, never truncated. Claude Code and Codex transcripts are both supported;
-the runtime is detected from the file's content, and both render into the
-exact same output format.
+text, never truncated. Claude Code, cursor-agent, and Codex transcripts are
+supported; the runtime is detected from the file's content, and all render into
+the exact same output format.
 
 ## Quick start
 
@@ -26,10 +27,13 @@ python3 scripts/extract_grill_session.py [transcript.jsonl] [output.md]
 - Without it: writes to a temp file under the OS temp dir and prints
   `wrote <path> — …` on stderr.
 
-The input is a session jsonl from either runtime, e.g.
+The input is a session jsonl from any supported runtime, e.g.
 `~/.claude/projects/<project>/<session-id>.jsonl` (Claude Code) or
-`~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-….jsonl` (Codex). An unrecognized
-format exits non-zero with an error on stderr.
+`~/.cursor/projects/<project>/agent-transcripts/<id>/<id>.jsonl`
+(cursor-agent) or `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-….jsonl`
+(Codex). Cursor IDE composer SQLite stores under `~/.cursor/chats/...` are not
+session jsonl and are out of scope. An unrecognized format exits non-zero with
+an error on stderr.
 
 ## Output format
 
@@ -56,12 +60,17 @@ their own-line open/close tags, not an XML parser.
 - A leading YAML frontmatter (`---` … `---`) carries session_id / period /
   counts / legend. (Deliberately **not** the source transcript path — so a
   consuming LLM can't go read the raw jsonl instead of this filtered extract.)
+- The extractor never truncates visible dialogue. Cursor standalone
+  `[REDACTED]` placeholder lines are stripped because they represent
+  runtime-hidden tool / non-output content, not assistant prose shown in the UI.
 
 ## What it keeps vs strips
 
 **Keeps** (the human↔agent dialogue):
 - Human-typed prompts — plain messages, and (Claude Code) slash commands
   restored to the form you typed them (`/grill-with-docs <args>`).
+- Cursor prompt envelopes unwrapped to only the `<user_query>` body; injected
+  prefixes such as `<timestamp>` and `<manually_attached_skills>` are not shown.
 - Prompts you typed while the agent was working (queued-command attachments).
 - The agent's text outputs (what it showed you).
 
@@ -73,6 +82,10 @@ their own-line open/close tags, not an XML parser.
   `<ide_opened_file>`); Codex: AGENTS.md instruction rows, `<skill>` loads,
   `<goal_context>` / `<hook_prompt>` / `<turn_aborted>` rows, compaction
   history, developer messages.
+- Cursor tool-result rows and prompt wrapper material outside `<user_query>`.
+- Cursor runtime task-result follow-up control prompts (for example prompts
+  asking the agent to briefly report task/sub-agent completion).
+- Cursor standalone `[REDACTED]` placeholder lines in assistant text blocks.
 - tool_result rows masquerading as user messages, and sub-agent
   `<task-notification>` / `<subagent_notification>` notices.
 
@@ -89,6 +102,22 @@ a one-word prompt like `停` is kept. Per runtime the structural test is:
   trail non-displayed attachments (e.g. `<oai-mem-citation>`) — so
   `response_item` rows are ignored entirely, which is a structural judgment,
   not a marker blacklist.
+- **Cursor** (`scripts/extract_cursor.py`): cursor-agent JSONL rows are
+  `{role, message}`. `role=user` contributes only text blocks. Before looking
+  for the human prompt, known injected wrappers such as
+  `<manually_attached_skills>...</manually_attached_skills>` and
+  `<timestamp>...</timestamp>` are removed, so documentation examples inside a
+  loaded skill cannot masquerade as user-query envelopes. If Cursor's
+  `<user_query>...</user_query>` envelope appears anywhere in the transcript,
+  only the final remaining envelope body is kept. Fixed Cursor runtime
+  task-result follow-up control prompts are excluded. Interleaved wrapper-less
+  system prompt rows are excluded; if Cursor then replays the same user-query
+  after such a wrapper-less system row, the replay is collapsed to one prompt.
+  Plain `role=user` text is kept only for legacy/simple Cursor transcripts with
+  no user-query envelope at all. `tool_result` blocks have no text block and are
+  ignored. `role=assistant` contributes `text` blocks after removing standalone
+  `[REDACTED]` placeholder lines; blocks left empty after that removal are
+  ignored. `thinking` and `tool_use` blocks are ignored.
 
 ## Architecture
 
@@ -96,15 +125,18 @@ a one-word prompt like `停` is kept. Per runtime the structural test is:
   dispatch, `load_messages`, `render_conversation`, CLI. One renderer ⇒ one
   output format.
 - `scripts/detect_runtime.py` — structural detection (`claude_code` / `codex`
-  / `unknown`) from the first rows' envelope shape, never from the path.
-- `scripts/extract_claude_code.py`, `scripts/extract_codex.py` — runtime
-  adapters. Shared contract: `extract_events(messages)` → ordered
+  / `cursor` / `unknown`) from the first rows' envelope shape, never from the
+  path.
+- `scripts/extract_claude_code.py`, `scripts/extract_cursor.py`,
+  `scripts/extract_codex.py` — runtime adapters. Shared contract:
+  `extract_events(messages)` → ordered
   `("user" | "assistant", text)`; `session_meta(messages)` →
   `(session_id, first_ts, last_ts)`. Adding a runtime = one adapter module +
   a detection clause; the renderer and CLI stay untouched.
 
 ## Scope
 
-Claude Code and Codex transcripts. Its only cross-skill dependency is the
-zero-argument mode, which runs the sibling `transcript-path` skill's entry
-script to resolve the current session; nothing else is imported or shared.
+Claude Code, cursor-agent, and Codex transcripts. Its only cross-skill
+dependency is the zero-argument mode, which runs the sibling `transcript-path`
+skill's entry script to resolve the current session; nothing else is imported
+or shared.

@@ -50,6 +50,24 @@ FROZEN_MODE = "frozen_glossary_review"
 NECESSITY_GATE = "adr_necessity_of_existence_check"
 NECESSITY_TERMINAL = "not_an_adr_candidate"
 
+GLOSSARY_APPROVAL_GATE = "context_glossary_approval_need_check"
+_FINDING_KEYS = {
+    "issue",
+    "evidence_location",
+    "why_it_matters",
+    "suggested_fix",
+    "gate_id",
+    "action_data",
+}
+_GLOSSARY_ACTION_DATA_KEYS = {
+    "target_wording",
+    "why_ordinary_prose_cannot_preserve_decision_meaning",
+    "context_change_kind",
+    "proposed_wording",
+    "required_user_action",
+    "full_quality_review_notice",
+}
+
 STRUCTURAL_GATE = "adr_structural_reviewability_check"
 # Preflight-only terminal: structural unreadability stops the preflight before
 # the glossary approval analysis can run.
@@ -62,7 +80,7 @@ _TERMINAL_STOP_GATE = {
     STRUCTURAL_BLOCKED_TERMINAL: STRUCTURAL_GATE,
 }
 _TERMINAL_ALLOWED_MODES = {
-    NECESSITY_TERMINAL: {QUALITY_REVIEW_MODE, FROZEN_MODE},
+    NECESSITY_TERMINAL: {QUALITY_REVIEW_MODE, PREFLIGHT_MODE, FROZEN_MODE},
     STRUCTURAL_BLOCKED_TERMINAL: {PREFLIGHT_MODE},
 }
 
@@ -137,6 +155,12 @@ def validate_verdict_payload(payload, expected_integrity_marker):
         mode_gates = review_prompt_assembly.mode_gate_ids(review_mode)
     except ValueError:
         return False, "unknown_review_mode"
+    canonical_gates = set(review_prompt_assembly.gate_ids())
+    for finding in payload["blocking"] + payload["non_blocking"]:
+        if not isinstance(finding, dict) or finding.get("gate_id") not in canonical_gates:
+            return False, "finding_gate_unknown"
+        if not _finding_schema_is_valid(finding):
+            return False, "finding_schema_invalid"
     if review_mode == PREFLIGHT_MODE and reference_closure != PREFLIGHT_FIXED_REFERENCE_CLOSURE:
         return False, "preflight_reference_closure_not_fixed"
     gate_evaluations = payload["gate_evaluations"]
@@ -147,9 +171,53 @@ def validate_verdict_payload(payload, expected_integrity_marker):
     allowed_modes = _TERMINAL_ALLOWED_MODES.get(payload["terminal_result"])
     if allowed_modes is not None and review_mode not in allowed_modes:
         return False, "terminal_outside_mode"
+    has_blocking_necessity_finding = any(
+        finding["gate_id"] == NECESSITY_GATE for finding in payload["blocking"]
+    )
+    if (payload["terminal_result"] == NECESSITY_TERMINAL) != has_blocking_necessity_finding:
+        return False, "necessity_terminal_finding_mismatch"
+    if any(
+        finding["gate_id"] not in mode_gates
+        for finding in payload["blocking"] + payload["non_blocking"]
+    ):
+        return False, "finding_gate_outside_mode"
     if set(gate_evaluations) != _expected_evaluated_gates(payload, mode_gates):
         return False, "gate_coverage_incomplete"
     return True, None
+
+
+def _finding_schema_is_valid(finding):
+    gate_id = finding["gate_id"]
+    expected_keys = set(_FINDING_KEYS)
+    if gate_id == NECESSITY_GATE and "reason" in finding:
+        expected_keys.add("reason")
+    if set(finding) != expected_keys:
+        return False
+    if any(
+        not isinstance(finding[key], str) or not finding[key]
+        for key in _FINDING_KEYS - {"action_data"}
+    ):
+        return False
+    if gate_id == NECESSITY_GATE and "reason" in finding:
+        if not isinstance(finding["reason"], str) or not finding["reason"]:
+            return False
+    action_data = finding["action_data"]
+    if gate_id != GLOSSARY_APPROVAL_GATE:
+        return action_data is None
+    return (
+        isinstance(action_data, dict)
+        and set(action_data) == _GLOSSARY_ACTION_DATA_KEYS
+        and action_data["context_change_kind"] in {"new_term", "changed_term"}
+        and all(
+            isinstance(value, str) and value
+            for key, value in action_data.items()
+            if key != "proposed_wording"
+        )
+        and (
+            action_data["proposed_wording"] is None
+            or isinstance(action_data["proposed_wording"], str)
+        )
+    )
 
 
 def _expected_evaluated_gates(payload, mode_gates):

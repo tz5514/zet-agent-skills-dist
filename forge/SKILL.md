@@ -1,6 +1,7 @@
 ---
 name: forge
 description: "任務的貫穿式執行品質框架。用 TodoWrite 驅動開工分析→逐步執行→交付閉環，每步有可驗證產物。觸發：/forge 或 $forge 或「使用 forge 來...」"
+disable-model-invocation: true
 ---
 
 # 貫穿式品質框架

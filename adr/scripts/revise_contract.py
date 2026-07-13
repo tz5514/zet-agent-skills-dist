@@ -45,6 +45,8 @@ QUALITY_REVIEW_MODE_MAP = {
 
 GLOSSARY_APPROVAL_GATE = "context_glossary_approval_need_check"
 REPETITION_GATE = "live_active_atomic_decision_repetition_check"
+SOURCE_PRESERVATION_GATE = "source_decision_preservation_check"
+_SUPPORT_DEPENDENT_GATES = {SOURCE_PRESERVATION_GATE, REPETITION_GATE}
 NOT_AN_ADR_CANDIDATE_TERMINAL = "not_an_adr_candidate"
 
 FINAL_PASSED = "passed"
@@ -513,6 +515,11 @@ class _State:
             "blocking": review["blocking"],
             "non_blocking": review.get("non_blocking", []),
             "support_data_status": review.get("support_data_status"),
+            "source_decision_extract_status": review.get("source_decision_extract_status"),
+            "live_atomic_decision_corpus_status": review.get(
+                "live_atomic_decision_corpus_status"
+            ),
+            "gate_coverage": review.get("gate_coverage"),
             "report_path": review.get("report_path"),
             # per-round provenance, supplied by the orchestrating caller when
             # available: which artifacts this round actually reviewed, and
@@ -525,7 +532,7 @@ class _State:
             "blocking_finding_dispositions": [],
         })
         self.degradation_notes.extend(review.get("scope_limitations", []))
-        if review.get("support_data_status") in {"missing", "degraded"}:
+        if _reviewer_evidence_is_degraded(review):
             self.evidence_status = "degraded_reviewer_evidence"
 
     def record_dispositions(self, dispositions):
@@ -596,6 +603,23 @@ class _State:
         report["structured_report_path"] = str(report_path)
         report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         return {"direct_output": _direct_output(report), "report": report}
+
+
+def _reviewer_evidence_is_degraded(review):
+    if any(
+        review.get(status_key) != "provided"
+        for status_key in (
+            "support_data_status",
+            "source_decision_extract_status",
+            "live_atomic_decision_corpus_status",
+        )
+    ):
+        return True
+    gate_coverage = review.get("gate_coverage")
+    return not isinstance(gate_coverage, dict) or any(
+        gate_coverage.get(gate_id) != "evaluated"
+        for gate_id in _SUPPORT_DEPENDENT_GATES
+    )
 
 
 def _glossary_findings(blocking):

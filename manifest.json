@@ -49,6 +49,7 @@
         "scripts/detect_runtime.py",
         "scripts/extract_claude_code.py",
         "scripts/extract_codex.py",
+        "scripts/extract_cursor.py",
         "scripts/extract_grill_session.py"
       ],
       "name": "extract-grill-session"
@@ -69,7 +70,8 @@
       "files": [
         "CONTEXT-FORMAT.md",
         "OUTPUT-FORMAT.md",
-        "SKILL.md"
+        "SKILL.md",
+        "scripts/hitl_ruling_contract.py"
       ],
       "name": "grill-with-docs"
     },
@@ -94,6 +96,6 @@
       "name": "transcript-path"
     }
   ],
-  "source_commit": "0204660234295d2c766bfabe35265319a87e31a7",
-  "source_dirty": false
+  "source_commit": "558b388d0fc960ddae8c1f3bcf4b535e8145f70c",
+  "source_dirty": true
 }

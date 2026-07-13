@@ -24,7 +24,7 @@ No fragment content is duplicated anywhere else. A gate that is not on a mode's 
 There is no caller-chosen gate set or order parameter; narrowing is carried by the mode name.
 
 - `quality_review` — complete ADR quality review: every gate.
-- `context_glossary_approval_preflight` — the interview-time preflight: only `adr_structural_reviewability_check` and `context_glossary_approval_need_check`, then stop. It is not complete ADR quality review and must never report `review_status: pass`. Reference closure belongs to the self-sufficiency check, which this mode does not run: the preflight prompt receives no bounded-context ADR store path, instructs no reference resolution, and its verdict payload must carry `reference_closure` as exactly the fixed value `{"status": "not_evaluated", "checked_references": [], "unresolved_references": []}` — the field stays required so schema consumers change nothing, but mechanical validation accepts only that fixed value in this mode.
+- `context_glossary_approval_preflight` — the interview-time preflight: `adr_structural_reviewability_check`, `context_glossary_approval_need_check`, then `adr_necessity_of_existence_check`, and stop. Necessity is conservative here: block only when the target is clearly not worth retaining as an ADR; insufficient confidence must pass to the later full review. It is not complete ADR quality review and must never report `review_status: pass`. Reference closure belongs to the self-sufficiency check, which this mode does not run: the preflight prompt receives no bounded-context ADR store path, instructs no reference resolution, and its verdict payload must carry `reference_closure` as exactly the fixed value `{"status": "not_evaluated", "checked_references": [], "unresolved_references": []}` — the field stays required so schema consumers change nothing, but mechanical validation accepts only that fixed value in this mode.
 - `frozen_glossary_review` — the pre-promotion frozen glossary review: the complete ADR quality review minus `context_glossary_approval_need_check`, run with the CONTEXT.md glossary set treated as frozen (no term may be added or changed). It is a narrowed **subset**, not an early-stop preflight, so it does not take the preflight "must not pass" special case: when every gate it covers is evaluated with no blocking finding it may report `review_status: pass`, but the report must make clear that the user-ruling CONTEXT.md glossary approval need check did not run — a pass does not mean glossary approval needs were ever checked. Undefined, term-like wording that cannot be rewritten as ordinary prose without losing decision meaning is routed to `context_glossary_usage_discipline_check` as a writer-fixable finding; this mode raises no user-ruling glossary finding, and any semantic degradation caused by rewriting to resolve a glossary gap is recorded, together with the gap, in the report.
 
 ### ADR quality-review dispatch parameters
@@ -33,7 +33,14 @@ There is no caller-chosen gate set or order parameter; narrowing is carried by t
 - **Prompt delivery:** the assembled prompt is written to the run directory by the assembler. A runtime that can pass file content into the sub-agent through a non-LLM channel (e.g. shell) brings it in directly; otherwise the main agent sends only a one-line fixed bootstrap instructing the reviewer to read that file and follow the instructions in it. The main agent never transcribes the prompt content. The prompt file's head carries the per-run integrity marker, and the reviewer must echo it back so a reviewer that never read the file (or read it incompletely) is caught mechanically and that round is judged invalid. The reviewer-side script validation alone cannot catch a fabricated marker, so after the round the main agent verifies the persisted verdict payload's `integrity_marker` against the assembler-issued marker, and the report's `review_mode` against the dispatched mode; a mismatch on either judges the round invalid. Both checks are carried mechanically by `scripts/review_verdict_report.py`'s reviewer-output resolution when given the expected marker and mode.
 - **Runtime model:** prompt semantics and judgement rules are shared across runtimes; model assignment and effort are dispatch policy only.
   - **Codex:** use `gpt-5.5` with `xhigh` reasoning effort. Do not enable fast mode. Do not pass a `service_tier` override; record it as omitted/default in run evidence.
-  - **Claude Code:** use Opus with high effort. This is the conservative production default until Claude cross-model smoke material can run again; do not report it as benchmark-proven while Claude quota or service health blocks validation.
+  - **Claude Code:** dispatch the reviewer through the CLI by piping the assembled prompt file into `claude -p --model opus --effort high` (e.g. `claude -p --model opus --effort high … < promptfile`). This is a **temporary patch**: in-harness Agent (sub-agent) dispatch can set the model but cannot set reasoning effort per invocation, so a plain sub-agent silently inherits the main session's effort tier. Sub-agent dispatch remains the preferred long-term form; the CLI carries only model and effort and never carries review rules or prompt content — the assembled prompt file stays the sole prompt authority. **Exit conditions:** (i) when the platform lets in-harness sub-agent dispatch set per-invocation effort (so the skill itself can set effort, with no file outside the skill folder), return to plain sub-agent dispatch and remove this patch; (ii) if `claude -p` is excluded from subscription billing and becomes expensive, this patch is unusable and a replacement must be found.
+    - The fixed tier (opus + high) serves all three review modes (`quality_review`, `context_glossary_approval_preflight`, `frozen_glossary_review`); no per-mode tiers.
+    - Effort `high` rests on a small-sample preliminary controlled comparison (same material, same dispatch channel): opus at high was clearly faster than opus at xhigh with no observed quality drop. A lower `medium` effort is a future experiment option — not adopted until measured.
+    - Foreground-synchronous: wait for the CLI call to finish before continuing. Never use `--bg` or any other backgrounding.
+    - Prompt delivery: piping the prompt file into `claude -p` is the direct non-LLM-channel delivery form, so the one-line bootstrap is skipped.
+    - Restrict the reviewer's tool set with `--tools Read Write Bash`. Do not reach for `--allowed-tools`/`--disallowed-tools` here: those are prompt-free allow/deny permission rules, not a mechanism that narrows the available tool set.
+    - When are in Claude code, run claude cli headless with the auto permission mode (`--permission-mode auto`), whose classifier gates each tool call without prompting. Never use `dontAsk` or `bypassPermissions` here: they strip the approval gate entirely, and a parent session's permission layer may reject the whole dispatch as an unsafe agent spawn. Pass `--allowedTools "Read Write Bash"` alongside it (the same flag as `--allowed-tools` above, in its camelCase spelling — used here in its legitimate role as a permission allow rule, while tool-set narrowing stays with `--tools`) so the reviewer's Read/Write/Bash are covered by an allow rule and never stall on a prompt.
+    - Output capture is unchanged: the reviewer's reply still carries the one line `REVIEW_REPORT_PATH: <path>`; the main agent extracts that line mechanically from the CLI stdout and reads the report file. The default `--output-format` (text) is sufficient.
   - **Other runtimes:** use the strongest available instruction-following model that has re-passed reviewer smoke material. Moving tiers or effort levels requires re-running reviewer smoke material and recording the runtime as a model/effort experiment.
 - **Timeout:** Timeout budget is runtime dispatch policy, not prompt semantics. Choose a budget from smoke evidence and expected full-review duration for the selected runtime. A timeout returns a structured report with `reviewer_close_status: tool_failed`; it does not silently pass.
 - **Evidence retention:** persisted reports are JSON and belong only in an OS tmp structured run directory or equivalent non-bounded-context evidence bundle. Do not write reviewer reports into production ADR folders, prompts, specs, CONTEXT.md, consumer docs, or formal ADRs.
@@ -68,7 +75,7 @@ The report file is JSON, generated by the mechanical script from the verdict pay
       "evidence_location": "...",
       "why_it_matters": "...",
       "suggested_fix": "...",
-      "gate_id": null,
+      "gate_id": "<canonical gate id>",
       "action_data": null
     }
   ],
@@ -78,7 +85,7 @@ The report file is JSON, generated by the mechanical script from the verdict pay
       "evidence_location": "...",
       "why_it_matters": "...",
       "suggested_fix": "...",
-      "gate_id": null,
+      "gate_id": "<canonical gate id>",
       "action_data": null
     }
   ],
@@ -91,6 +98,7 @@ The report file is JSON, generated by the mechanical script from the verdict pay
     "adr_description_check": "evaluated|degraded|not_evaluated|skipped",
     "adr_background_check": "evaluated|degraded|not_evaluated|skipped",
     "adr_atomic_decisions_check": "evaluated|degraded|not_evaluated|skipped",
+    "atomic_decision_eligibility_check": "evaluated|degraded|not_evaluated|skipped",
     "adr_rationale_check": "evaluated|degraded|not_evaluated|skipped",
     "source_decision_preservation_check": "evaluated|degraded|not_evaluated|skipped",
     "live_active_atomic_decision_repetition_check": "evaluated|degraded|not_evaluated|skipped",
@@ -106,6 +114,8 @@ The report file is JSON, generated by the mechanical script from the verdict pay
   "reviewer_close_status": "completed|tool_failed|scope_limited"
 }
 ```
+
+Every finding requires `gate_id`. It must be a canonical gate id returned by `review_prompt_assembly.gate_ids()` and must belong to the dispatched mode. Unknown, misspelled, null, or mode-out finding ids invalidate the review round before report generation.
 
 `review_status` is `fail` when any `blocking` finding exists. It is `pass` only when all required axes were evaluated and no blocking finding exists. It is `degraded` when missing or degraded support data prevents a clean evaluation of one or more support-data-dependent axes. It is `not_evaluated` only when the reviewer could not make a scoped judgement at all.
 

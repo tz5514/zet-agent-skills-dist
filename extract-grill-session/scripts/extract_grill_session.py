@@ -2,7 +2,7 @@
 """extract-grill-session: an agent session transcript -> clean dialogue.
 
 Keep only the human-typed prompts and the agent's text outputs, in
-chronological order, never truncated. Supports claude code and codex
+chronological order, never truncated. Supports claude code, cursor, and codex
 transcripts: the runtime is detected from the file's content and mapped to a
 per-runtime adapter; rendering is shared, so the output format is identical
 for every runtime.
@@ -21,6 +21,7 @@ from pathlib import Path
 import detect_runtime
 import extract_claude_code
 import extract_codex
+import extract_cursor
 
 # runtime identifier (as detected from content) -> adapter module. Every
 # adapter satisfies the same contract: extract_events(messages) yields
@@ -29,6 +30,7 @@ import extract_codex
 _ADAPTERS = {
     "claude_code": extract_claude_code,
     "codex": extract_codex,
+    "cursor": extract_cursor,
 }
 
 

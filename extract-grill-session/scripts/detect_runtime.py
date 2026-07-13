@@ -2,7 +2,7 @@
 """Detect which agent runtime produced a transcript JSONL file.
 
 Usage: python3 detect_runtime.py <transcript.jsonl>
-Prints the runtime identifier to stdout: claude_code | codex | unknown
+Prints the runtime identifier to stdout: claude_code | cursor | codex | unknown
 
 Detection is structural — each runtime's envelope shape is matched on the
 first rows — never based on the file's path or name.
@@ -38,6 +38,12 @@ def detect(path):
 
         if "sessionId" in obj and obj.get("type") in _CLAUDE_CODE_TYPES:
             return "claude_code"
+
+        if (obj.get("role") in ("user", "assistant")
+                and "message" in obj
+                and "sessionId" not in obj
+                and "type" not in obj):
+            return "cursor"
 
         if ("payload" in obj and "timestamp" in obj
                 and obj.get("type") in _CODEX_TYPES):

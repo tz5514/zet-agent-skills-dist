@@ -91,9 +91,17 @@ def glossary_approval_need_finding(
     }
 
 
-def build_context_glossary_approval_preflight_report(target_adr_path, glossary_approval_findings=None):
+def build_context_glossary_approval_preflight_report(
+    target_adr_path,
+    glossary_approval_findings=None,
+    necessity_findings=None,
+):
     glossary_approval_findings = list(glossary_approval_findings or [])
+    necessity_findings = list(necessity_findings or [])
     structural = check_structural_reviewability(target_adr_path)
+    mode_gates = review_prompt_assembly.mode_gate_ids(
+        CONTEXT_GLOSSARY_APPROVAL_PREFLIGHT_MODE
+    )
     gate_coverage = {gate_id: "skipped" for gate_id in GATE_COVERAGE_IDS}
     skipped_gate_reasons = {}
     gate_coverage["adr_structural_reviewability_check"] = "evaluated"
@@ -109,17 +117,23 @@ def build_context_glossary_approval_preflight_report(target_adr_path, glossary_a
         review_status = "fail"
         # the same named terminal the reviewer verdict channel uses for this stop
         terminal_result = "blocked_by_structural_unreadability"
-        skipped_gate_reasons["context_glossary_approval_need_check"] = "blocked_by_structural_unreadability"
-        for gate_id in GATE_COVERAGE_IDS[2:]:
+        for gate_id in GATE_COVERAGE_IDS:
+            if gate_id == "adr_structural_reviewability_check":
+                continue
             skipped_gate_reasons[gate_id] = "blocked_by_structural_unreadability"
     else:
-        gate_coverage["context_glossary_approval_need_check"] = "evaluated"
+        for gate_id in mode_gates:
+            gate_coverage[gate_id] = "evaluated"
         blocking.extend(glossary_approval_findings)
-        if glossary_approval_findings:
+        blocking.extend(necessity_findings)
+        if blocking:
             preflight_status = "failed"
             review_status = "fail"
-        for gate_id in GATE_COVERAGE_IDS[2:]:
-            skipped_gate_reasons[gate_id] = "context_glossary_approval_preflight_complete"
+        if necessity_findings:
+            terminal_result = "not_an_adr_candidate"
+        for gate_id in GATE_COVERAGE_IDS:
+            if gate_id not in mode_gates:
+                skipped_gate_reasons[gate_id] = "context_glossary_approval_preflight_complete"
 
     return {
         "target_adr_path": target_adr_path,
@@ -352,6 +366,7 @@ def _adr_necessity_finding(reason, evidence_location):
         "evidence_location": evidence_location,
         "why_it_matters": "A target that is not an ADR candidate cannot be accepted by later prose or formatting findings.",
         "suggested_fix": suggested_fix,
+        "action_data": None,
     }
 
 

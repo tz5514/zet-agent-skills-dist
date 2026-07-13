@@ -70,6 +70,7 @@ def _mode_gate_selection():
         "context_glossary_approval_preflight": [
             "adr_structural_reviewability_check",
             "context_glossary_approval_need_check",
+            "adr_necessity_of_existence_check",
         ],
         "frozen_glossary_review": [
             gate_id for gate_id in all_gates if gate_id != "context_glossary_approval_need_check"

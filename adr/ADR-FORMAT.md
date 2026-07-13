@@ -68,7 +68,7 @@ Include only compact accounting of decision source material that must be preserv
 
 Exclude transcript content, expected final wording, reviewer answer keys, writer intent, repair history, rationale prose, Background-only facts, anti-confusion notes, not-the-topic scope corrections, already-existing facts, implementation details, examples, and writer-facing instructions as durable decision clauses. Writer self-check evidence may be retained only as status/path/accounting metadata for the writer or produce report; it is not reviewer input.
 
-Writer self-check evidence records whether the writer checked Source Decision Extract closure, `description` answer leakage, section-role boundaries, atomicity, same-file id use, CONTEXT.md vocabulary, and support-data placement. Record status and evidence path only; do not turn the self-check into reviewer input or durable ADR prose.
+Writer self-check evidence records whether the writer checked Source Decision Extract closure, `description` answer leakage, section-role boundaries, atomicity, atomic-decision eligibility, same-file id use, CONTEXT.md vocabulary, and support-data placement. Record status and evidence path only; do not turn the self-check into reviewer input or durable ADR prose.
 
 ## Frontmatter — machine-readable metadata only
 
@@ -203,6 +203,17 @@ The decision content lives in a fixed body block whose heading is **always the E
 - **Readiness/sufficiency endpoint atoms.** When the source decision defines a readiness threshold, sufficiency endpoint, acceptance endpoint, or stop condition, that endpoint is decision content. Put it in an atomic decision instead of leaving it as rationale or process narration.
 - **Enforcement is the author's own self-check at `write` time.** Atomicity is a semantic judgement. The author applies the test above while writing; ADR 品質審查 may later report defects, but the writer must not defer the judgement.
 - **Cheap structural lint as a self-check aid — `scripts/atomicity_lint.py`.** Run the atomicity lint over your own draft as a near-zero-cost backstop. It mechanically scans each decision bullet in `## Atomic Decisions` and flags two structural smells: a **markdown table row** crammed into one bullet, and a **multi-item enumeration** (two or more nested sub-bullets or inline `N.` ordinals) crammed into one bullet — the most common way a multi-question decision is smuggled in as one bullet. The lint only **flags suspects by a reproducible counting rule**; it does not decide atomicity (that semantic re-judgement, via the partial-supersession test, stays with you), it never blocks, and it dispatches no LLM. A flag is a prompt to re-apply the test, not a verdict.
+
+### Atomic-decision eligibility — the future-replacement test
+
+Every atomic decision must justify the permanent comparison cost it adds to supersession tracking. For each candidate, imagine what a future ADR that replaces it would say. The candidate is eligible only when that replacement could state a **different trade-off conclusion and new reasons** about the same question.
+
+- **True decision:** keep the candidate in `## Atomic Decisions` when a future replacement can choose a different trade-off. A concrete value remains a true decision when changing it necessarily reopens the trade-off argument.
+- **Remeasurable parameter value:** when a future change would only rerun the same measurement under the same trade-off framework and produce a new value, the value is not an atomic decision. The implementation is the single authority for the current value; durable prose may name only the stable contract layer that owns it.
+- **Completed one-time act:** when replacement is meaningless because the candidate only says that a migration, move, bootstrap, or other one-time act happened, record that fact as historical prose in `## Background` or `## Rationale`, not as an atomic decision.
+- **Normative-content floor:** before moving a completed act into historical prose, extract every still-binding normative rule embedded in it, such as a compatibility constraint, boundary, or change rule. Preserve that rule as an atomic decision instead of burying it with the event.
+- **Measured-alternative floor:** when removing a measured value whose evidence rejected a meaningful alternative, preserve the protection as a decision that governs the value-change procedure, such as requiring the relevant measurement to run before the value changes. Do not keep the measured value itself in the ADR merely to retain that protection.
+- **Prospective application:** this eligibility rule does not create a retrospective cleanup obligation. Apply it while writing a draft and when an existing decision is already being rewritten or superseded for another reason; do not initiate supersession solely to reclassify old content.
 
 **Design trade-off (recorded here so a reader understands it):** atomic decision content lives in the body, not in frontmatter, because frontmatter's extraction advantage is for *short* metadata; multi-sentence decision content stuffed into YAML is both cramped and brittle. The cost is that the body block relies on the fixed English heading to stay machine-locatable (a frontmatter key is inherently fixed; a body heading has to be enforced — which `## Atomic Decisions` does).
 

@@ -1,7 +1,7 @@
 """Mechanical produce-for-HITL orchestration contract helpers.
 
-The lightweight human-in-the-loop draft flow runs `write`, then a
-CONTEXT.md glossary approval preflight quality review, and stops. It never runs
+The lightweight human-in-the-loop draft flow runs `write`, then the interview
+preflight quality review, and stops. It never runs
 full ADR quality review, never runs supersession scanning, and never claims a
 complete produce-style acceptance pass. This module keeps the final-status
 semantics, the JSON report contract, and the shared machine-handoff envelope in
@@ -22,7 +22,19 @@ REPORT_FILENAME = "produce_for_hitl_report.json"
 FINAL_STATUS_HITL_PREFLIGHT_PASSED = "hitl_preflight_passed"
 FINAL_STATUS_NO_ADR = "no_adr"
 FINAL_STATUS_NEEDS_CONTEXT_RULING = "needs_context_ruling"
+FINAL_STATUS_NEEDS_USER_RULING = "needs_user_ruling"
 FINAL_STATUS_FAILED = "failed"
+
+NECESSITY_GATE = "adr_necessity_of_existence_check"
+NECESSITY_TERMINAL = "not_an_adr_candidate"
+_NECESSITY_FINDING_KEYS = {
+    "issue",
+    "gate_id",
+    "evidence_location",
+    "why_it_matters",
+    "suggested_fix",
+    "action_data",
+}
 
 # write outcomes the orchestration recognises. Only a written draft with a
 # usable path continues to the preflight path; no_adr and needs_context_ruling
@@ -33,7 +45,7 @@ WRITE_STATUS_NEEDS_CONTEXT_RULING = "needs_context_ruling"
 
 FULL_QUALITY_REVIEW_NOTICE = (
     "Full ADR quality review has not run; this run only completed the lightweight "
-    "human-in-the-loop write and CONTEXT.md glossary approval preflight."
+    "human-in-the-loop write and interview preflight."
 )
 
 # Scan bookkeeping. A written draft that reaches the preflight path records the
@@ -191,6 +203,36 @@ def _build_preflight_path_report(write_result, draft_adr_path, preflight_outcome
 def _preflight_disposition(tool_failed, preflight_report):
     if tool_failed:
         return _failed_disposition([{"stage": "preflight", "kind": "tool_failure"}])
+    if not isinstance(preflight_report, dict) or not isinstance(
+        preflight_report.get("blocking"), list
+    ):
+        return _failed_disposition(
+            [{"stage": "preflight", "kind": "invalid_preflight_report"}]
+        )
+    blocking = preflight_report["blocking"]
+    necessity_findings = [
+        finding
+        for finding in blocking
+        if isinstance(finding, dict) and finding.get("gate_id") == NECESSITY_GATE
+    ]
+    terminal = preflight_report.get("terminal_result")
+    if (terminal == NECESSITY_TERMINAL) != bool(necessity_findings):
+        return _failed_disposition(
+            [{"stage": "preflight", "kind": "necessity_terminal_finding_mismatch"}]
+        )
+    if terminal == NECESSITY_TERMINAL:
+        if not all(_valid_raw_necessity_finding(finding) for finding in necessity_findings):
+            return _failed_disposition(
+                [{"stage": "preflight", "kind": "invalid_necessity_finding_schema"}]
+            )
+        ruling_request = _necessity_ruling_request(necessity_findings)
+        return {
+            "final_status": FINAL_STATUS_NEEDS_USER_RULING,
+            "needs_user_ruling": True,
+            "ruling_request": ruling_request,
+            "evidence_status": EVIDENCE_CLEAN,
+            "errors": [],
+        }
     preflight_status = preflight_report["preflight_status"]
     if preflight_status == "passed":
         return {
@@ -268,6 +310,7 @@ def _not_run_preflight_review():
         "preflight_status": None,
         "report_path": None,
         "blocking_count": 0,
+        "blocking": [],
         "glossary_approval_action_data": [],
     }
 
@@ -280,6 +323,19 @@ def _preflight_review(tool_failed, preflight_report, child_report_path):
             "preflight_status": None,
             "report_path": child_report_path,
             "blocking_count": 0,
+            "blocking": [],
+            "glossary_approval_action_data": [],
+        }
+    if not isinstance(preflight_report, dict) or not isinstance(
+        preflight_report.get("blocking"), list
+    ):
+        return {
+            "state": "invalid",
+            "review_mode": PREFLIGHT_REVIEW_MODE,
+            "preflight_status": None,
+            "report_path": child_report_path,
+            "blocking_count": 0,
+            "blocking": [],
             "glossary_approval_action_data": [],
         }
     blocking = preflight_report["blocking"]
@@ -289,12 +345,64 @@ def _preflight_review(tool_failed, preflight_report, child_report_path):
         "preflight_status": preflight_report["preflight_status"],
         "report_path": child_report_path,
         "blocking_count": len(blocking),
+        "blocking": blocking,
         "glossary_approval_action_data": _glossary_action_data(blocking),
     }
 
 
 def _glossary_action_data(blocking):
-    return [finding["action_data"] for finding in blocking if "action_data" in finding]
+    return [
+        finding["action_data"]
+        for finding in blocking
+        if finding.get("gate_id") == "context_glossary_approval_need_check"
+        and isinstance(finding.get("action_data"), dict)
+    ]
+
+
+def _project_necessity_finding(finding):
+    return {key: value for key, value in finding.items() if key != "action_data"}
+
+
+def _valid_raw_necessity_finding(finding):
+    expected_keys = set(_NECESSITY_FINDING_KEYS)
+    if "reason" in finding:
+        expected_keys.add("reason")
+    if set(finding) != expected_keys or finding["gate_id"] != NECESSITY_GATE:
+        return False
+    if finding["action_data"] is not None:
+        return False
+    if any(
+        not isinstance(finding[key], str) or not finding[key]
+        for key in _NECESSITY_FINDING_KEYS - {"action_data"}
+    ):
+        return False
+    return "reason" not in finding or (
+        isinstance(finding["reason"], str) and bool(finding["reason"])
+    )
+
+
+def _necessity_ruling_request(necessity_findings):
+    return {
+        "origin": "preflight",
+        "terminal_result": NECESSITY_TERMINAL,
+        "findings": [_project_necessity_finding(finding) for finding in necessity_findings],
+    }
+
+
+def validate_necessity_ruling_projection(raw_blocking, ruling_request):
+    necessity_findings = [
+        finding
+        for finding in raw_blocking
+        if isinstance(finding, dict) and finding.get("gate_id") == NECESSITY_GATE
+    ]
+    if not necessity_findings or not all(
+        _valid_raw_necessity_finding(finding) for finding in necessity_findings
+    ):
+        return False, "invalid_necessity_findings"
+    expected = _necessity_ruling_request(necessity_findings)
+    if ruling_request != expected:
+        return False, "necessity_ruling_projection_mismatch"
+    return True, None
 
 
 def _base_report(
