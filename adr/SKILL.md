@@ -50,11 +50,7 @@ Flow:
 3. If `write` returns `needs_context_ruling`, stop immediately with `final_status: needs_context_ruling`. Do not invent vocabulary, write a draft, dispatch reviewer, or scan.
 4. If `write` returns a written draft, call `revise` with `quality_review_mode: full_quality_review`, passing the written draft's path. `revise` owns the draft ADR acceptance check, reviewer finding repair, `scan-supersession`, the scan-rewrite loop, scan-result invalidation reruns, and the detailed report; `produce` does not duplicate any of them.
 
-Runtime dispatch defaults for sub-agent / cli:
-
-- Writing should run on a high-reasoning, instruction-following model because first-draft quality is the main cost driver for the downstream review loop.
-- **Codex:** use `gpt-5.5` with `xhigh` reasoning effort for `write`. Do not enable fast mode. Do not pass a `service_tier` override; record it as omitted/default in run evidence.
-- **Claude Code:** use Opus with high effort for `write`. This is the conservative production default until Claude cross-model smoke material can run again. The reviewer-disposition-repair and scan-request-rewrite dispatch defaults moved to `revise`, which owns those steps.
+`write` is not a dispatch point: the agent executing the operation performs the writing itself, so this skill assigns no dispatch channel and no model/effort tier for writing. Runtime dispatch defaults and the channel rule live in the `revise` section and the dispatch spec files it routes to.
 
 Input:
 
@@ -140,11 +136,9 @@ Flow:
 14. Tail-scan evidence diff: when the post-acceptance tail scan completes, its written result is diffed against the `supersedes` evidence the passing review round saw — the draft frontmatter's `supersedes` set at pass time. Additions only, or unchanged: the delivery passes with no further review (new evidence never supported the already-made pass). Removed or changed entries: one more quality-review round must re-judge acceptance — evidence the pass relied on is never pulled away silently — and that round counts into the shared round limit. When the pass landed on the last budgeted round and the owed re-review cannot run, `revise` ends `blocked_after_review_limit` and the report's `errors` carries `tail_evidence_rereview_budget_exhausted`, so the caller can mechanically read why the run blocked even though the last round itself had no blocking findings.
 15. Passed composite: `revise` ends `passed` only when all of these hold — the last quality-review round has no blocking findings, a non-invalidated scan result for the current `## Atomic Decisions` exists with status `completed` or `skipped_no_active`, and no scan result is pending.
 
-Runtime dispatch defaults for sub-agent / cli:
+Runtime dispatch defaults:
 
-- Reviewer-disposition repair and scan-request rewrites should run on a high-reasoning, instruction-following model because first-draft quality is the main cost driver for the review loop.
-- **Codex:** use `gpt-5.5` with `xhigh` reasoning effort for reviewer-disposition repair and scan-request rewrites. Do not enable fast mode. Do not pass a `service_tier` override; record it as omitted/default in run evidence.
-- **Claude Code:** use Opus with high effort for reviewer-disposition repair and scan-request rewrites. This is the conservative production default until Claude cross-model smoke material can run again; do not report it as benchmark-proven while Claude quota or service health blocks validation.
+- The dispatch channel is one runtime-keyed rule shared by every dispatch point in this skill: on Claude Code, dispatch through the `claude -p` CLI (a temporary patch); on every other runtime, dispatch through that runtime's native sub-agent facility — never through any CLI. The rule's full statement, the reviewer tier values, and exit conditions live with the dispatch parameters in **QUALITY-REVIEW-PROMPTS.md**; scanner stage tiers live in **SCAN-SUPERSESSION-PROMPT.md**.
 - `quality-review` reviewer dispatch uses **QUALITY-REVIEW-PROMPTS.md**. Scanner dispatch uses **SCAN-SUPERSESSION-PROMPT.md**. Do not fork their prompt wording or judgement rules per model.
 
 Output and required JSON report fields:
