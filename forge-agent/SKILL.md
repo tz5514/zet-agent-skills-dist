@@ -1,7 +1,6 @@
 ---
 name: forge-agent
 description: "forge 的 sub-agent 快捷入口。自動 spawn fresh-context sub-agent 以 forge 框架執行任務，避免主 context 錨定效應。觸發：/forge-agent、用 sub-agent 跑 forge、隔離分析、fresh context 分析、盲測、blind analysis。Do NOT use for 主 agent 直接跑 forge（直接用 /forge）。"
-disable-model-invocation: true
 ---
 
 # forge Sub-agent 快捷入口

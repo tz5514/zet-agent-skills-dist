@@ -68,6 +68,13 @@
     },
     {
       "files": [
+        "GUIDE.md",
+        "SKILL.md"
+      ],
+      "name": "git-commit"
+    },
+    {
+      "files": [
         "CONTEXT-FORMAT.md",
         "OUTPUT-FORMAT.md",
         "SKILL.md",
@@ -78,11 +85,36 @@
     {
       "files": [
         "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "implement"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "implement-tickets"
+    },
+    {
+      "files": [
+        "GATE-PROMPT.md",
+        "SKILL.md",
+        "scripts/prompt_assembly.py",
+        "scripts/report_validation.py"
+      ],
+      "name": "review-spec"
+    },
+    {
+      "files": [
+        "ADR-REFERENCE-HANDLING.md",
+        "SKILL.md",
+        "agents/openai.yaml",
         "scripts/adr_reference_block.py",
         "scripts/path_existence_check.py",
         "templates/related-adrs-blocks.md"
       ],
-      "name": "to-prd"
+      "name": "to-spec-pro"
     },
     {
       "files": [
@@ -96,6 +128,6 @@
       "name": "transcript-path"
     }
   ],
-  "source_commit": "8881294ba42b8697de45daabce28a7e57614b80e",
+  "source_commit": "a5e19928b2337373d65b05fad3f0a2cfac68408f",
   "source_dirty": false
 }

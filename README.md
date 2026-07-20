@@ -21,6 +21,10 @@ Included skills:
 - `extract-grill-session`
 - `forge`
 - `forge-agent`
+- `git-commit`
 - `grill-with-docs`
-- `to-prd`
+- `implement`
+- `implement-tickets`
+- `review-spec`
+- `to-spec-pro`
 - `transcript-path`
