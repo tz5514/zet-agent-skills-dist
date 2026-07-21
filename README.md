@@ -1,7 +1,5 @@
 # zet-agent-skills
 
-Developer documentation: [Skill Call Map](https://zet-agent-skills-call-map-20260714.tz5514.chatgpt.site)
-
 Install with skills.sh:
 
 ```bash
