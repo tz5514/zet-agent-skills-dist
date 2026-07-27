@@ -27,6 +27,9 @@ FINAL_STATUS_FAILED = "failed"
 
 NECESSITY_GATE = "adr_necessity_of_existence_check"
 NECESSITY_TERMINAL = "not_an_adr_candidate"
+STRUCTURAL_GATE = "adr_structural_reviewability_check"
+GLOSSARY_APPROVAL_GATE = "context_glossary_approval_need_check"
+STRUCTURAL_BLOCKED_TERMINAL = "blocked_by_structural_unreadability"
 _NECESSITY_FINDING_KEYS = {
     "issue",
     "gate_id",
@@ -233,8 +236,12 @@ def _preflight_disposition(tool_failed, preflight_report):
             "evidence_status": EVIDENCE_CLEAN,
             "errors": [],
         }
-    preflight_status = preflight_report["preflight_status"]
+    preflight_status = preflight_report.get("preflight_status")
     if preflight_status == "passed":
+        if blocking or terminal is not None:
+            return _failed_disposition(
+                [{"stage": "preflight", "kind": "invalid_preflight_report"}]
+            )
         return {
             "final_status": FINAL_STATUS_HITL_PREFLIGHT_PASSED,
             "needs_user_ruling": False,
@@ -243,6 +250,31 @@ def _preflight_disposition(tool_failed, preflight_report):
             "errors": [],
         }
     if preflight_status == "failed":
+        structural_findings = [
+            finding
+            for finding in blocking
+            if isinstance(finding, dict) and finding.get("gate_id") == STRUCTURAL_GATE
+        ]
+        if structural_findings:
+            return _failed_disposition(
+                [
+                    {
+                        "stage": "preflight",
+                        "kind": "structural_reviewability",
+                        "findings": structural_findings,
+                    }
+                ]
+            )
+        glossary_findings = [
+            finding
+            for finding in blocking
+            if isinstance(finding, dict)
+            and finding.get("gate_id") == GLOSSARY_APPROVAL_GATE
+        ]
+        if not glossary_findings or len(glossary_findings) != len(blocking):
+            return _failed_disposition(
+                [{"stage": "preflight", "kind": "invalid_preflight_report"}]
+            )
         # A glossary approval need is a user ruling, not a failure: write and
         # preflight evidence are both present, so evidence stays clean.
         return {
@@ -250,14 +282,27 @@ def _preflight_disposition(tool_failed, preflight_report):
             "needs_user_ruling": True,
             "ruling_request": {
                 "origin": "preflight",
-                "glossary_approval_action_data": _glossary_action_data(preflight_report["blocking"]),
+                "glossary_approval_action_data": _glossary_action_data(glossary_findings),
             },
             "evidence_status": EVIDENCE_CLEAN,
             "errors": [],
         }
-    # preflight could not evaluate because the draft was structurally unreadable.
+    if (
+        preflight_status != "blocked"
+        or terminal != STRUCTURAL_BLOCKED_TERMINAL
+        or not blocking
+        or any(
+            not isinstance(finding, dict)
+            or finding.get("gate_id") != STRUCTURAL_GATE
+            for finding in blocking
+        )
+    ):
+        return _failed_disposition(
+            [{"stage": "preflight", "kind": "invalid_preflight_report"}]
+        )
+    # Preflight stopped because the draft was structurally unreadable.
     return _failed_disposition(
-        [{"stage": "preflight", "kind": "structural_unreadability", "findings": preflight_report["blocking"]}]
+        [{"stage": "preflight", "kind": "structural_unreadability", "findings": blocking}]
     )
 
 

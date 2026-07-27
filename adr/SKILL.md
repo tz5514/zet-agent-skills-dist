@@ -13,7 +13,7 @@ Authoritative spec files in this skill:
 - `QUALITY-REVIEW-PROMPTS.md` — ADR quality-review report schema, dispatch parameters, the three named review modes, and how the per-mode reviewer prompt is mechanically assembled.
 - `QUALITY-REVIEW-PROMPT-BLOCKS.md` — the single-authority fragments (shared framework, per-gate, and mode-specific rule blocks) the reviewer prompt is assembled from.
 - `SCAN-SUPERSESSION-PROMPT.md` — the field-tested verbatim prompt template and dispatch parameters for supersession scanner sub-agents.
-- `scripts/` — the mechanical helpers: `context_derivation.py`, `adr_subfolder.py`, `description_index.py`, `atomicity_lint.py`, `live_atomic_decision_corpus.py`, `scan_candidates.py`, `scan_supersession_input.py`, `scan_supersession_packet.py`, `scan_supersession_ledger.py`, `scan_supersession_result.py`, `scan_supersession_delivery.py`, `scan_rewrite_contract.py`, `produce_for_hitl_contract.py`, `quality_review_contract.py`, `review_prompt_assembly.py`, `review_verdict_report.py`, `revise_contract.py`, `revise_and_promote_contract.py`, `supersession_converter.py`, `status_calculator.py`, `supersession_mark_back.py`, `conflict_disposition.py`.
+- `scripts/` — the mechanical helpers: `context_derivation.py`, `adr_subfolder.py`, `description_index.py`, `atomicity_lint.py`, `live_atomic_decision_corpus.py`, `scan_candidates.py`, `scan_supersession_input.py`, `scan_supersession_packet.py`, `scan_supersession_ledger.py`, `scan_supersession_result.py`, `scan_supersession_delivery.py`, `scan_rewrite_contract.py`, `produce_for_hitl_contract.py`, `quality_review_contract.py`, `review_prompt_assembly.py`, `preflight_authority_bundle.py`, `review_verdict_report.py`, `revise_contract.py`, `revise_and_promote_contract.py`, `supersession_converter.py`, `status_calculator.py`, `supersession_mark_back.py`, `conflict_disposition.py`.
 
 ## Invocation contract
 
@@ -139,6 +139,7 @@ Flow:
 Runtime dispatch defaults:
 
 - The dispatch channel is one runtime-keyed rule shared by every dispatch point in this skill: on Claude Code, dispatch through the `claude -p` CLI (a temporary patch); on every other runtime, dispatch through that runtime's native sub-agent facility — never through any CLI. The rule's full statement, the reviewer tier values, and exit conditions live with the dispatch parameters in **QUALITY-REVIEW-PROMPTS.md**; scanner stage tiers live in **SCAN-SUPERSESSION-PROMPT.md**.
+- Every CLI and native sub-agent dispatch is foreground-synchronous. The main agent must wait for and collect the terminal result before it continues; receiving a dispatch handle is not completion. Parallel calls are allowed only behind a join barrier that collects every terminal result before the next ADR lifecycle step.
 - `quality-review` reviewer dispatch uses **QUALITY-REVIEW-PROMPTS.md**. Scanner dispatch uses **SCAN-SUPERSESSION-PROMPT.md**. Do not fork their prompt wording or judgement rules per model.
 
 Output and required JSON report fields:

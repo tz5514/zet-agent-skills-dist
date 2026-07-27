@@ -13,6 +13,7 @@ adding, or reordering of fragment content — this module is the only assembler.
 
 import re
 import secrets
+import shlex
 from pathlib import Path
 
 
@@ -25,9 +26,10 @@ _GATES_STEP = "GATES"
 
 INTEGRITY_MARKER_PREFIX = "REVIEWER PROMPT INTEGRITY MARKER"
 
-# The `{...}` placeholders in the scope-lock and output-contract fragments,
-# instantiated at render. `run_dir` and `verdict_script_path` make the prompt
-# file self-sufficient about the mechanical payload/report delivery.
+# The path/value `{...}` placeholders in the scope-lock and output-contract
+# fragments, instantiated at render. The report command is generated separately
+# after these substitutions so placeholder-like path text cannot be rewritten
+# recursively.
 _PLACEHOLDER_KEYS = (
     "review_mode",
     "target_adr_path",
@@ -41,6 +43,8 @@ _PLACEHOLDER_KEYS = (
 )
 
 _VERDICT_SCRIPT_PATH = Path(__file__).resolve().parent / "review_verdict_report.py"
+_VERDICT_COMMAND_PLACEHOLDER = "{verdict_command}"
+_VERDICT_PAYLOAD_FILENAME = "verdict_payload.json"
 
 
 def _fragments():
@@ -116,7 +120,7 @@ _MODE_LAYOUT = {
         "framework:gate-inventory",
         "framework:domain-term-rules",
         "framework:anti-cheat",
-        "framework:output-contract",
+        "mode-rule:context-glossary-preflight-output-contract",
     ],
     "frozen_glossary_review": [
         "framework:hard-role",
@@ -177,6 +181,26 @@ def generate_integrity_marker():
     return secrets.token_hex(8)
 
 
+def _verdict_command(review_mode, placeholders, integrity_marker):
+    """Return the shell-safe mechanical report command for the rendered mode."""
+    argv = [
+        "python3",
+        placeholders["verdict_script_path"],
+    ]
+    if review_mode == "context_glossary_approval_preflight":
+        argv.append("preflight")
+    argv.extend(
+        [
+            str(Path(placeholders["run_dir"]) / _VERDICT_PAYLOAD_FILENAME),
+            integrity_marker,
+        ]
+    )
+    if review_mode == "context_glossary_approval_preflight":
+        argv.append(placeholders["target_adr_path"])
+    argv.append(placeholders["run_dir"])
+    return shlex.join(argv)
+
+
 # The preflight runs no reference-resolution work, so its prompt never receives
 # the bounded-context ADR store path: the placeholder is instantiated to this
 # fixed withdrawn literal, leaving every other mode's inputs untouched.
@@ -194,6 +218,10 @@ def render_review_prompt(review_mode, placeholders, integrity_marker):
         }
     for key in _PLACEHOLDER_KEYS:
         body = body.replace("{" + key + "}", placeholders[key])
+    body = body.replace(
+        _VERDICT_COMMAND_PLACEHOLDER,
+        _verdict_command(review_mode, placeholders, integrity_marker),
+    )
     marker_line = f"[{INTEGRITY_MARKER_PREFIX}: {integrity_marker}]"
     return f"{marker_line}\n\n{body}"
 

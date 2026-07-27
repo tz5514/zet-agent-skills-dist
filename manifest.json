@@ -16,6 +16,7 @@
         "scripts/context_derivation.py",
         "scripts/description_index.py",
         "scripts/live_atomic_decision_corpus.py",
+        "scripts/preflight_authority_bundle.py",
         "scripts/produce_for_hitl_contract.py",
         "scripts/quality_review_contract.py",
         "scripts/review_prompt_assembly.py",
@@ -128,6 +129,6 @@
       "name": "transcript-path"
     }
   ],
-  "source_commit": "e18e98b438aaba07fb04363649163dea4ed7a0b9",
+  "source_commit": "2e44d38ea8f65d0a0202888aaeb720902d33a464",
   "source_dirty": true
 }

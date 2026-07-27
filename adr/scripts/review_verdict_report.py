@@ -7,6 +7,11 @@ in the full report schema: the skipped-gate bookkeeping, notices, and
 mode-specific fields the reviewer never writes. Report shape matches the ADR
 quality-review report schema; only its producer (this script) and delivery (a
 persisted file, surfaced by a fixed-format path line) changed.
+
+The HITL preflight has a smaller semantic input boundary: the reviewer supplies
+only explicit gate results, findings, scope limitations, and the integrity
+marker. This module normalizes representational details and supplies every field
+that the preflight mode or dispatch already determines.
 """
 
 import json
@@ -66,6 +71,21 @@ _GLOSSARY_ACTION_DATA_KEYS = {
     "proposed_wording",
     "required_user_action",
     "full_quality_review_notice",
+}
+_SEMANTIC_FINDING_BASE_KEYS = _FINDING_KEYS - {"action_data"}
+_SEMANTIC_GLOSSARY_ACTION_DATA_KEYS = (
+    _GLOSSARY_ACTION_DATA_KEYS - {"full_quality_review_notice"}
+)
+PREFLIGHT_SEMANTIC_PAYLOAD_KEYS = {
+    "integrity_marker",
+    "gate_evaluations",
+    "blocking",
+    "non_blocking",
+    "scope_limitations",
+}
+_PREFLIGHT_SEMANTIC_GATE_RESULTS = {
+    "evaluated",
+    "terminal",
 }
 
 STRUCTURAL_GATE = "adr_structural_reviewability_check"
@@ -128,6 +148,141 @@ _NOTICE = {
 }
 
 
+def expand_preflight_semantic_payload(payload, *, target_adr_path):
+    """Expand the preflight reviewer's semantic-only payload into the shared
+    verdict payload. Missing semantic judgements remain invalid; this function
+    derives representation and mode facts only."""
+    if not isinstance(payload, dict) or set(payload) != PREFLIGHT_SEMANTIC_PAYLOAD_KEYS:
+        return {"status": "invalid", "reason": "semantic_payload_schema_invalid"}
+    if not (
+        isinstance(payload["gate_evaluations"], dict)
+        and isinstance(payload["blocking"], list)
+        and isinstance(payload["non_blocking"], list)
+        and isinstance(payload["scope_limitations"], list)
+    ):
+        return {"status": "invalid", "reason": "payload_field_type_invalid"}
+
+    gate_evaluations = dict(payload["gate_evaluations"])
+    if any(
+        result in {"degraded", "not_evaluated"}
+        for result in gate_evaluations.values()
+    ):
+        return {
+            "status": "invalid",
+            "reason": "preflight_gate_evaluation_incomplete",
+        }
+    if any(
+        result not in _PREFLIGHT_SEMANTIC_GATE_RESULTS
+        for result in gate_evaluations.values()
+    ):
+        return {"status": "invalid", "reason": "semantic_gate_evaluation_invalid"}
+    terminal_gates = {
+        gate for gate, result in gate_evaluations.items() if result == "terminal"
+    }
+    if terminal_gates - {STRUCTURAL_GATE}:
+        return {"status": "invalid", "reason": "semantic_terminal_gate_invalid"}
+    structural_terminal = STRUCTURAL_GATE in terminal_gates
+    if structural_terminal:
+        gate_evaluations[STRUCTURAL_GATE] = "evaluated"
+
+    normalized_findings = {"blocking": [], "non_blocking": []}
+    for severity in normalized_findings:
+        for finding in payload[severity]:
+            normalized = _expand_preflight_semantic_finding(finding)
+            if normalized is None:
+                return {"status": "invalid", "reason": "finding_schema_invalid"}
+            normalized_findings[severity].append(normalized)
+
+    has_blocking_structural = any(
+        finding["gate_id"] == STRUCTURAL_GATE
+        for finding in normalized_findings["blocking"]
+    )
+    has_blocking_necessity = any(
+        finding["gate_id"] == NECESSITY_GATE
+        for finding in normalized_findings["blocking"]
+    )
+    if structural_terminal and not has_blocking_structural:
+        return {
+            "status": "invalid",
+            "reason": "structural_terminal_finding_mismatch",
+        }
+    if structural_terminal and any(
+        finding["gate_id"] != STRUCTURAL_GATE
+        for findings in normalized_findings.values()
+        for finding in findings
+    ):
+        return {"status": "invalid", "reason": "conflicting_terminal_signals"}
+
+    terminal_result = (
+        STRUCTURAL_BLOCKED_TERMINAL
+        if structural_terminal
+        else NECESSITY_TERMINAL if has_blocking_necessity else None
+    )
+    expanded = {
+        "integrity_marker": payload["integrity_marker"],
+        "review_mode": PREFLIGHT_MODE,
+        "target_adr_path": target_adr_path,
+        "gate_evaluations": gate_evaluations,
+        "blocking": normalized_findings["blocking"],
+        "non_blocking": normalized_findings["non_blocking"],
+        "reference_closure": dict(PREFLIGHT_FIXED_REFERENCE_CLOSURE),
+        "support_data_status": "not_applicable",
+        "source_decision_extract_status": "not_applicable",
+        "live_atomic_decision_corpus_status": "not_applicable",
+        "terminal_result": terminal_result,
+        "scope_limitations": payload["scope_limitations"],
+        "reviewer_close_status": "completed",
+    }
+    ok, reason = validate_verdict_payload(
+        expanded,
+        expanded["integrity_marker"],
+    )
+    if not ok:
+        return {"status": "invalid", "reason": reason}
+    return {"status": "valid", "payload": expanded}
+
+
+def _expand_preflight_semantic_finding(finding):
+    if not isinstance(finding, dict):
+        return None
+    gate_id = finding.get("gate_id")
+    expected_keys = set(_SEMANTIC_FINDING_BASE_KEYS)
+    if gate_id == GLOSSARY_APPROVAL_GATE:
+        expected_keys.add("action_data")
+    if gate_id == NECESSITY_GATE and "reason" in finding:
+        expected_keys.add("reason")
+    if set(finding) != expected_keys:
+        return None
+
+    evidence_location = finding.get("evidence_location")
+    if isinstance(evidence_location, list):
+        if not evidence_location or any(
+            not isinstance(item, str) or not item for item in evidence_location
+        ):
+            return None
+        evidence_location = "; ".join(evidence_location)
+
+    normalized = {
+        **finding,
+        "evidence_location": evidence_location,
+    }
+    if gate_id != GLOSSARY_APPROVAL_GATE:
+        normalized["action_data"] = None
+        return normalized
+
+    action_data = finding["action_data"]
+    if not (
+        isinstance(action_data, dict)
+        and set(action_data) == _SEMANTIC_GLOSSARY_ACTION_DATA_KEYS
+    ):
+        return None
+    normalized["action_data"] = {
+        **action_data,
+        "full_quality_review_notice": _NOTICE[PREFLIGHT_MODE],
+    }
+    return normalized
+
+
 def validate_verdict_payload(payload, expected_integrity_marker):
     """Validate a reviewer verdict payload. Returns ``(ok, reason)`` — a
     structured signal, never a crash. A marker mismatch or absence, a malformed
@@ -166,6 +321,10 @@ def validate_verdict_payload(payload, expected_integrity_marker):
     gate_evaluations = payload["gate_evaluations"]
     if not isinstance(gate_evaluations, dict):
         return False, "gate_evaluations_not_a_mapping"
+    if review_mode == PREFLIGHT_MODE and any(
+        result != "evaluated" for result in gate_evaluations.values()
+    ):
+        return False, "preflight_gate_evaluation_incomplete"
     if any(gate not in mode_gates for gate in gate_evaluations):
         return False, "gate_outside_mode"
     allowed_modes = _TERMINAL_ALLOWED_MODES.get(payload["terminal_result"])
@@ -338,6 +497,27 @@ def write_verdict_report(*, payload, expected_integrity_marker, run_dir):
     }
 
 
+def write_preflight_verdict_report(
+    *,
+    semantic_payload,
+    expected_integrity_marker,
+    target_adr_path,
+    run_dir,
+):
+    """Expand, validate, and persist a HITL preflight semantic verdict."""
+    expanded = expand_preflight_semantic_payload(
+        semantic_payload,
+        target_adr_path=target_adr_path,
+    )
+    if expanded["status"] != "valid":
+        return expanded
+    return write_verdict_report(
+        payload=expanded["payload"],
+        expected_integrity_marker=expected_integrity_marker,
+        run_dir=run_dir,
+    )
+
+
 def report_path_line(report_path):
     """The single fixed-format line the reviewer emits so the main agent can
     mechanically locate the report file among any surrounding prose."""
@@ -393,18 +573,32 @@ def resolve_reviewer_output(reviewer_output, *, expected_integrity_marker=None, 
 def main(argv):
     """Reviewer-callable entry point: read a verdict payload file, validate and
     persist the report, and print the fixed-format path line (or an invalid-round
-    marker). ``argv`` is ``[payload_path, expected_integrity_marker, run_dir]``."""
-    payload_path, expected_integrity_marker, run_dir = argv
+    marker). Preflight uses ``[preflight, semantic_payload_path,
+    expected_integrity_marker, target_adr_path, run_dir]``; other modes retain
+    ``[payload_path, expected_integrity_marker, run_dir]``."""
+    preflight = argv[0] == "preflight"
+    if preflight:
+        _, payload_path, expected_integrity_marker, target_adr_path, run_dir = argv
+    else:
+        payload_path, expected_integrity_marker, run_dir = argv
     try:
         payload = json.loads(Path(payload_path).read_text(encoding="utf-8"))
     except (ValueError, OSError):
         print("INVALID_ROUND: payload_file_unreadable")
         return 1
-    result = write_verdict_report(
-        payload=payload,
-        expected_integrity_marker=expected_integrity_marker,
-        run_dir=run_dir,
-    )
+    if preflight:
+        result = write_preflight_verdict_report(
+            semantic_payload=payload,
+            expected_integrity_marker=expected_integrity_marker,
+            target_adr_path=target_adr_path,
+            run_dir=run_dir,
+        )
+    else:
+        result = write_verdict_report(
+            payload=payload,
+            expected_integrity_marker=expected_integrity_marker,
+            run_dir=run_dir,
+        )
     if result["status"] == "valid":
         print(result["path_line"])
         return 0

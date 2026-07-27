@@ -73,11 +73,11 @@ If this gate produces a blocking finding that the target is not an ADR candidate
 [CONTEXT.md GLOSSARY APPROVAL PREFLIGHT MODE]
 This mode runs only `adr_structural_reviewability_check`, `context_glossary_approval_need_check`, and `adr_necessity_of_existence_check`, in that formal order, then stops. All downstream gates are outside this mode, and the mechanical report script fills in their skipped bookkeeping. This mode is not complete ADR quality review; a clean preflight means only that no caller-owned CONTEXT.md approval need or obvious ADR-necessity failure was found. The report must include the notice "full ADR quality review has not run" and must not use `review_status: pass`.
 
-Apply ADR necessity conservatively in this mode. Report a blocking `adr_necessity_of_existence_check` finding only when the target is clearly not worth retaining as an ADR. When the evidence is borderline or confidence is insufficient, do not block; leave the full ADR quality review to make the later, stricter judgement. When necessity does block, set `terminal_result` to `not_an_adr_candidate`, keep every necessity blocking finding, and stop with no later gate evaluation.
+Apply ADR necessity conservatively in this mode. Report a blocking `adr_necessity_of_existence_check` finding only when the target is clearly not worth retaining as an ADR. When the evidence is borderline or confidence is insufficient, do not block; leave the full ADR quality review to make the later, stricter judgement. When necessity does block, keep every necessity blocking finding and stop with no later gate evaluation. The preflight report script derives `terminal_result: not_an_adr_candidate` from that blocking gate result; do not repeat it in the semantic verdict.
 
-If structural unreadability prevents glossary approval analysis, report the structural finding, set `terminal_result` to `blocked_by_structural_unreadability`, evaluate no further gate, and stop — the mechanical report script fills in the blocked skipped-gate bookkeeping from that terminal.
+If structural unreadability prevents glossary approval analysis, report the structural finding, record `terminal` as the structural gate result, evaluate no further gate, and stop — the mechanical report script derives `terminal_result: blocked_by_structural_unreadability` and fills in the blocked skipped-gate bookkeeping.
 
-Reference closure is outside this mode: do not resolve references and do not read the bounded-context ADR store. In your verdict payload, set `reference_closure` to exactly {"status": "not_evaluated", "checked_references": [], "unresolved_references": []} — the mechanical validation accepts only this fixed value in this mode, so doing the resolution work does not just waste time, it invalidates the round.
+Reference closure is outside this mode: do not resolve references and do not read the bounded-context ADR store. The preflight report script supplies the fixed not-evaluated reference-closure value; do not include `reference_closure` in the semantic verdict.
 <!-- @mode-rule:frozen-glossary-finding-routing -->
 [FROZEN GLOSSARY REVIEW MODE]
 The CONTEXT.md glossary set is frozen for this review: you may not add or change any CONTEXT.md term, and you never raise a glossary need that requires a user ruling. Identifying and escalating user-ruling glossary needs is deliberately not part of this mode.
@@ -118,11 +118,32 @@ Do not turn decision-quality, argument-completeness, or quantification preferenc
 <!-- @framework:anti-cheat -->
 [ANTI-CHEAT METHOD]
 Perform a negative check: try to prove the ADR can stand without the conversation and without hidden writer intent. If that proof depends on forbidden input, report the dependency. Do not fill gaps from memory or from what the author probably meant.
+<!-- @mode-rule:context-glossary-preflight-output-contract -->
+[OUTPUT CONTRACT]
+Do not hand-write the full report or the generic quality-review verdict payload. Write only the preflight semantic verdict to `{run_dir}/verdict_payload.json`.
+
+The semantic verdict has exactly five keys: `integrity_marker`, `gate_evaluations`, `blocking`, `non_blocking`, and `scope_limitations`. `gate_evaluations` must explicitly account for every reached preflight gate: use `evaluated`; use `terminal` only for structural unreadability and omit every later gate in that case. If any reached gate cannot be evaluated, stop and report `tool_failed` instead of writing a semantic verdict. Never omit a required non-terminal gate and never treat an omitted gate as clear.
+
+Every finding contains only `issue`, `evidence_location`, `why_it_matters`, `suggested_fix`, and `gate_id`. `evidence_location` may be one non-empty string or a non-empty list of non-empty strings; the script normalizes either representation. A necessity finding may also contain a non-empty `reason`.
+
+For a non-glossary finding, omit `action_data`; the script supplies `action_data: null`. A `context_glossary_approval_need_check` finding additionally contains `action_data` with exactly `target_wording`, `why_ordinary_prose_cannot_preserve_decision_meaning`, `context_change_kind` (`new_term` or `changed_term`), `proposed_wording` (a string or null), and `required_user_action`; the script supplies the fixed full-quality-review notice.
+
+The five-key schema is closed: any other top-level key invalidates the semantic verdict. Every full-report field is script-owned and derived from these five semantic inputs plus dispatch authority, so the semantic verdict never duplicates report metadata.
+
+After writing the semantic verdict, run:
+
+{verdict_command}
+
+The script validates the semantic verdict, expands it into the shared verdict contract, generates the full report, and prints the report path. Your entire outward reply need contain only:
+
+REVIEW_REPORT_PATH: <the path the script printed>
+
+Any other prose is ignored. A missing path line, invalid semantic verdict, or missing report file invalidates the round.
 <!-- @framework:output-contract -->
 [OUTPUT CONTRACT]
 Do not hand-write the full report. Do exactly three things, in order: write your minimal verdict payload to `{run_dir}/verdict_payload.json`, run the mechanical report script on it with
 
-python3 {verdict_script_path} {run_dir}/verdict_payload.json <the integrity marker from the top of this prompt> {run_dir}
+{verdict_command}
 
 then emit one fixed-format path line. The script fills in the full report schema — skipped-gate bookkeeping, notices, review status, preflight status, and every other derivable field — so you never write them.
 
