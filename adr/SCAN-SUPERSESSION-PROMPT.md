@@ -6,7 +6,7 @@ This file is the authoritative prompt and dispatch contract for the `scan-supers
 
 Scanner sub-agents use instruction-following models. Prompt semantics, helper scripts, structured schema, chunk policy, and judgement framework are shared across runtimes. Runtime-specific settings are dispatch policy only: model assignment, effort, timeout, retry, parallelism, and dispatch channel. They must not change prompt wording or judgement rules.
 
-- **Codex:** gpt-5.4-mini with medium effort for inner scanner/ledger stages; gpt-5.4 with medium effort for bounded outer review stages when those are delegated.
+- **Codex:** gpt-5.6-terra with low effort for inner scanner and auxiliary ledger stages. Keep bounded outer review stages with the main agent; do not delegate them until a fixed rendered review contract has been independently benchmarked.
 - **Claude Code:** Sonnet with medium effort for inner scanner/ledger stages; Sonnet with high effort for target-id review; Opus with medium effort for the remaining bounded outer review stages when those are delegated.
 - **Other runtimes:** use an instruction-following model tier that has re-passed the same shared prompt and structural checks; do not fork prompt wording or judgement rules per model.
 

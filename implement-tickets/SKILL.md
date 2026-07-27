@@ -32,6 +32,24 @@ Each ticket must be handled by one fresh sub-agent that explicitly invokes the `
 
 Stop before changing code if validation fails.
 
+### Related Draft ADR input
+
+For the local tracker layout, resolve the parent PRD as the `PRD.md` in the feature directory immediately containing the supplied tickets directory.
+
+A missing parent PRD, an absent Related Draft ADRs section, or an empty section is an empty finalization list and does not prevent the ticket workflow from running.
+
+Only machine-generated Related Draft ADR rows form the finalization set; headings, prose, active rows, and other content never enter it.
+
+Before ticket dispatch, validate the complete non-empty list against the explicit repository root: preserve row order and reject repeated identities, repeated paths, paths outside the root, and zero or multiple lifecycle folders.
+
+Resolve every listed ADR path as repository-root-relative; reject absolute paths and resolve accepted paths from the explicit repository root.
+
+A validation failure stops the entire run before implementation starts; never deduplicate, guess a lifecycle state, or defer this validation to finalization.
+
+The lifecycle folders on the integration branch are the resume authority.
+
+On resume and immediately before each row starts, resolve the ADR identity on the integration branch through exactly one lifecycle folder: `draft/` is pending; `active/` and `archived/` are already complete and never re-run; zero or multiple folders are invalid and must be reported without guessing.
+
 ### Prepare questions
 
 Before dispatching any ticket, ask the user once whether this run uses a single shared git worktree for ticket git operations, together with a suggested branch name for the new integration branch.
@@ -203,6 +221,50 @@ After the review and its fixes:
 - run the repository's full required checks in the shared worktree when this run uses one, otherwise in the primary working tree
 - verify the integration branch is green
 
+### Related draft ADR finalization
+
+Related draft ADR finalization is a build closeout, not a ticket, and never delegates to implement.
+
+Begin related draft ADR finalization only after every ticket is integrated and verified with no failed, frozen, skipped, interrupted, or unverifiable ticket, both integration-level review passes and their bounded-fix verification have reached terminal results, required checks are green on the integration branch, and no remaining finding leaves aggregate implementation ground truth unsettled.
+
+If the finalization gate fails, invoke no ADR operation: leave every lifecycle state unchanged and report every row with the same gate-failure reason and all applicable blocking findings, if any.
+
+Process finalization rows strictly in their PRD order, one at a time; do not start the next row until the prior result is merged or losslessly recovered.
+
+Use the settled active working tree for every ADR finalization; never create an additional worktree for an ADR row.
+
+For each row, record its initial lifecycle state. An `active/` or `archived/` row is already complete and is not invoked again. A zero or multiple-folder re-check is a failed row: do not guess, keep the integration branch unchanged, verify the active working tree is clean, and continue only when that verification succeeds.
+
+For a pending draft, create a human-readable collision-free finalization branch from the current integration tip.
+
+For a pending draft, invoke the ADR skill's complete revise-and-promote-draft-to-active operation with its current draft path; never split it into lower-level revise and promotion calls.
+
+Accept a finalization branch only when final_status: promoted, the draft path is gone, exactly one active path exists, the diff is limited to ADR lifecycle effects, the structured report is readable, and the branch changes are committed.
+
+Merge an accepted finalization branch into the integration branch before the next row starts.
+
+For a non-promoted terminal or failed mechanical acceptance, keep the finalization branch unmerged; stage and commit any uncommitted or untracked changes as-is as a failure-scene snapshot, never edit, discard, or carry them into another branch; continue only after that snapshot is durable, the integration branch is restored to its pre-attempt tip, and the active working tree is verified clean.
+
+If branch creation or checkout fails, do not invoke the ADR operation: keep attempted false and return to the integration branch through the same restoration and clean-tree gate before continuing.
+
+Record branch creation or checkout failure as a branch-stage error, operation or result-commit failure as an operation-stage error, failure-scene snapshot commit failure or return-to-integration or clean verification failure as a recovery-stage error, and merge or merge-abort failure as a merge-stage error.
+
+On merge failure, never resolve a merge automatically: abort the merge, preserve the finalization branch, and continue only after the integration branch is restored to its pre-attempt tip and the active working tree is verified clean.
+
+If failure-scene snapshotting, merge abort, branch restoration, or clean-tree verification cannot complete, stop remaining ADR finalization, preserve the current branch, active working tree, and available reports for manual recovery, and do not attempt worktree cleanup.
+
+For every ADR row, report initial and final lifecycle state plus independent branch, operation, merge, and recovery stages; every stage records its state, artifact identifiers, and error.
+
+Set attempted to true exactly when the complete ADR operation begins; while attempted is false, operation terminal status and structured report path are null and a reason is required.
+
+When attempted is true, retain current-run terminal status and report path when produced; if either is absent because the operation failed, record the operation-stage error.
+
+On resume, never search or reconstruct historical OS-tmp reports; use only current-run artifacts.
+
+After the final ADR row, perform only read-only mechanical validation and reporting; do not run another integration review, dispatch bounded fixes, or start another write-capable stage.
+
+The final report records the shared-worktree cleanup outcome and any preserved branch or worktree path.
+
 Return:
 
 - completed tickets and their commits
@@ -213,10 +275,15 @@ Return:
 - final verification results
 - final integration commit
 - the integration branch holding this run's completed work
+- related draft ADR finalization records and the full-success or partial-completion verdict
 - preserved branches requiring manual follow-up
 
 Do not declare success unless every ticket is complete and the integration branch is green.
 
+Report partial completion whenever any finalization row is neither promoted during this run nor already complete by lifecycle state. Report full success only when every row satisfies one of those conditions.
+
 ### Shared worktree cleanup
 
-When this run created a worktree, remove it only after final verification has completed when that path is reached. Also remove it whenever this invocation ends earlier after the worktree was created — including when Prepare stops after settlement because ticket reading, dependency-graph validation, or non-green-sequence detection fails, and when Finish stops without reaching final verification. Removal deletes only the extra working directory: it never deletes a branch or a commit, and it never changes the primary working tree's current checkout. If removal fails, do not roll back any integration; list the leftover worktree path in the final report among the items requiring manual follow-up.
+After normal finalization or a losslessly recovered failure, remove the shared worktree only after finalization and its read-only checks finish; if lossless recovery failed, do not remove it, and if normal cleanup fails, report the leftover path without rolling back integrations.
+
+When this run created a worktree, remove it only after final verification has completed when that path is reached. For a run with ADR finalization, complete that stage and its read-only checks before this removal. Except for a finalization stopped after failed lossless recovery, which preserves its shared worktree and Git state for manual recovery, also remove it whenever this invocation ends earlier after the worktree was created — including when Prepare stops after settlement because ticket reading, dependency-graph validation, or non-green-sequence detection fails, and when Finish stops without reaching final verification. Removal deletes only the extra working directory: it never deletes a branch or a commit, and it never changes the primary working tree's current checkout. If removal fails, do not roll back any integration; list the leftover worktree path in the final report among the items requiring manual follow-up. Record the cleanup outcome.
