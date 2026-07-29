@@ -1,7 +1,7 @@
 """Prepare one frozen HITL preflight authority bundle for any supported runtime.
 
-The common core derives and freezes the reviewer prompt, ADR format, CONTEXT.md,
-and target ADR. Runtime adapters only decide how that same bundle reaches the
+The common core freezes the reviewer prompt, the skill's own ADR format spec,
+the context's CONTEXT.md, and the target ADR. Runtime adapters only decide how that same bundle reaches the
 reviewer: a Codex native tool result, Claude Code stdin, or one Cursor native
 sub-agent Terminal acquisition (with one read of Cursor's runtime-generated
 spill file when the Terminal externalizes a large result).
@@ -21,6 +21,10 @@ from review_prompt_assembly import write_review_prompt_file
 
 REVIEW_MODE = "context_glossary_approval_preflight"
 _SCRIPT_PATH = Path(__file__).resolve()
+# ADR-FORMAT.md is this skill's own spec file: its sole authoritative copy sits
+# beside SKILL.md, so it never resolves from the bounded context and a
+# same-named file there is ignored. Only CONTEXT.md belongs to the context.
+_ADR_FORMAT_PATH = _SCRIPT_PATH.parent.parent / "ADR-FORMAT.md"
 _AUTHORITY_ROLES = ("reviewer_prompt", "adr_format", "context", "target_adr")
 _MANIFEST_FILENAME = "preflight_authority_manifest.json"
 _RUNTIME_POLICIES = {
@@ -255,7 +259,7 @@ def prepare_preflight_dispatch(
         raise ValueError(f"unsupported runtime: {runtime}")
     target_path = _resolve_file(target_adr_path, "target_adr")
     context_root = Path(derive_context_root(str(target_path)))
-    adr_format_path = _resolve_file(context_root / "ADR-FORMAT.md", "adr_format")
+    adr_format_path = _resolve_file(_ADR_FORMAT_PATH, "adr_format")
     context_path = _resolve_file(context_root / "CONTEXT.md", "context")
     run_path = Path(run_dir).resolve()
 
