@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "campaign_id": "replace-with-stable-id",
+  "revision": 0,
+  "transaction_id": null,
+  "previous_state_path": null,
+  "previous_state_sha256": null,
+  "status": "running",
+  "contract": {
+    "complete": false,
+    "objective": "",
+    "final_deliverable": "",
+    "metric_priority": [],
+    "hard_gate": "",
+    "allowed_variable": "",
+    "frozen_surfaces": [],
+    "valid_run_criteria": "",
+    "promotion_criteria": "",
+    "rollback_criteria": "",
+    "audit_policy": "",
+    "retry_limit": 0,
+    "search_budget": {
+      "unit": "candidate",
+      "limit": 1
+    },
+    "stop_conditions": [],
+    "execution_mode": "serial"
+  },
+  "contract_sha256": null,
+  "baseline": {
+    "id": null,
+    "artifact": null,
+    "evidence": null,
+    "rollback": null
+  },
+  "current_round": {
+    "id": null,
+    "status": "none",
+    "hypothesis": null,
+    "changed_surface": null,
+    "repeat_of": null,
+    "candidate_artifact": null,
+    "condition_packet": null,
+    "execution_packet": null,
+    "result_packet": null,
+    "verdict": null,
+    "promotion_evidence": null
+  },
+  "progress": {
+    "completed_rounds": 0,
+    "invalid_runs": 0,
+    "rejected_directions": 0
+  },
+  "next_action": {
+    "type": "complete_contract",
+    "description": "Complete and freeze the campaign contract."
+  },
+  "checkpoint": {
+    "summary": "",
+    "open_risks": [],
+    "resume_condition": null,
+    "suspended_next_action": null,
+    "active_worker_ids": [],
+    "history_index": null,
+    "completion_evidence": null
+  }
+}

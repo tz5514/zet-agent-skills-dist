@@ -24,5 +24,6 @@ Included skills:
 - `implement`
 - `implement-tickets`
 - `review-spec`
+- `run-long-iteration`
 - `to-spec-pro`
 - `transcript-path`
