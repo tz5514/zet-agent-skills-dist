@@ -34,9 +34,9 @@ Stop before changing code if validation fails.
 
 ### Related Draft ADR input
 
-For the local tracker layout, resolve the parent PRD as the `PRD.md` in the feature directory immediately containing the supplied tickets directory.
+For the local tracker layout, resolve the parent spec as the `spec.md` in the feature directory immediately containing the supplied tickets directory.
 
-A missing parent PRD, an absent Related Draft ADRs section, or an empty section is an empty finalization list and does not prevent the ticket workflow from running.
+A missing parent spec, an absent Related Draft ADRs section, or an empty section is an empty finalization list and does not prevent the ticket workflow from running.
 
 Only machine-generated Related Draft ADR rows form the finalization set; headings, prose, active rows, and other content never enter it.
 
@@ -229,7 +229,7 @@ Begin related draft ADR finalization only after every ticket is integrated and v
 
 If the finalization gate fails, invoke no ADR operation: leave every lifecycle state unchanged and report every row with the same gate-failure reason and all applicable blocking findings, if any.
 
-Process finalization rows strictly in their PRD order, one at a time; do not start the next row until the prior result is merged or losslessly recovered.
+Process finalization rows strictly in their spec order, one at a time; do not start the next row until the prior result is merged or losslessly recovered.
 
 Use the settled active working tree for every ADR finalization; never create an additional worktree for an ADR row.
 

@@ -114,7 +114,7 @@ No code edits before steps 5–6 succeed. When step 7 applies, no code edits bef
 
 ## Self-explaining output
 
-Let the code you write carry its own intent — names, types, and structure should make the design obvious, so a later reader understands it without chasing anything outside the code. This is the target for every text file change you make while implementing: source, comments, docstrings, docs shipped alongside the code, and — when the unit's work is designing a skill — that skill's prompt text. It governs the output side only: the PRD, issue, ticket, ADR, CONTEXT.md, and spec you read to do the work are inputs, not outputs, and commit messages and other git metadata sit outside it too. It binds the output you newly produce from here on, not code that already shipped.
+Let the code you write carry its own intent — names, types, and structure should make the design obvious, so a later reader understands it without chasing anything outside the code. This is the target for every text file change you make while implementing: source, comments, docstrings, docs shipped alongside the code, and — when the unit's work is designing a skill — that skill's prompt text. It governs the output side only: the spec, issue, ticket, ADR, CONTEXT.md you read to do the work are inputs, not outputs, and commit messages and other git metadata sit outside it too. It binds the output you newly produce from here on, not code that already shipped.
 
 Reach for a **decision comment** on a single checkable question: does this implementation deliberately avoid a more obvious, more common approach? When it does, that choice is a fence — leave one line saying why the obvious approach was rejected, so the next reader does not tear the fence down and walk back into the problem you steered around. When the implementation is already the natural, obvious solution, the code speaks for itself — default to nothing, and earn the comment through the fence question. When you do write that line, it states the decision itself — the reason standing on its own — not a pointer back to whatever document prompted it.
 
@@ -125,7 +125,7 @@ Reach for a **decision comment** on a single checkable question: does this imple
 - Do not implement missing blockers.
 - Do not reopen settled product or architecture decisions.
 - Do not add speculative features or unrelated refactors.
-- Do not cite the PRD, issue, ticket, or ADR in the output you produce; let the code carry intent, and when a rationale is unavoidable state the decision itself, not the document (see Self-explaining output).
+- Do not cite the spec, issue, ticket, or ADR in the output you produce; let the code carry intent, and when a rationale is unavoidable state the decision itself, not the document (see Self-explaining output).
 - Do not create, switch, merge, or delete branches or worktrees.
 - Do not manage ticket scheduling, integration, or completion status; the calling orchestrator owns those responsibilities.
 - Do not declare completion while tests fail or acceptance criteria remain unmet.
