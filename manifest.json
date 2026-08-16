@@ -5,6 +5,10 @@
     {
       "files": [
         "ADR-FORMAT.md",
+        "ADR-NECESSITY-CONDITIONS.md",
+        "CHECK-ADR-REDUNDANCY-HUMAN-REPORT.md",
+        "CHECK-ADR-REDUNDANCY-PROMPT.md",
+        "CHECK-SHOULD-WRITE-ADR-PROMPT.md",
         "QUALITY-REVIEW-PROMPT-BLOCKS.md",
         "QUALITY-REVIEW-PROMPTS.md",
         "SCAN-SUPERSESSION-PROMPT.md",
@@ -166,6 +170,6 @@
       "name": "transcript-path"
     }
   ],
-  "source_commit": "c6e1616039c621ed346a7d3a27a8b9d17e8c2d77",
+  "source_commit": "f7a1d26329317522de77e3675011a5ac68a23bc0",
   "source_dirty": true
 }
