@@ -68,7 +68,7 @@ their own-line open/close tags, not an XML parser.
 
 **Keeps** (the human↔agent dialogue):
 - Human-typed prompts — plain messages, and (Claude Code) slash commands
-  restored to the form you typed them (`/grill-with-docs <args>`).
+  restored to the form you typed them (`/emergent-grill <args>`).
 - Cursor prompt envelopes unwrapped to only the `<user_query>` body; injected
   prefixes such as `<timestamp>` and `<manually_attached_skills>` are not shown.
 - Prompts you typed while the agent was working (queued-command attachments).

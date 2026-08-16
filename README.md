@@ -14,16 +14,18 @@ npx skills update -g
 
 Included skills:
 
-- `adr`
-- `adr-format-migration`
+- `emergent-adr`
 - `extract-grill-session`
+- `extract-transcript`
+- `emergent-design`
+- `emergent-to-spec`
+- `emergent-to-tickets`
 - `forge`
 - `forge-agent`
 - `git-commit`
-- `grill-with-docs`
-- `implement`
-- `implement-tickets`
-- `review-spec`
+- `emergent-grill`
+- `emergent-implement`
+- `emergent-implement-tickets`
+- `emergent-spec-review`
 - `run-long-iteration`
-- `to-spec-pro`
 - `transcript-path`

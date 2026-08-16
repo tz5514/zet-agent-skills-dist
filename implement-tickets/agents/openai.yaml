@@ -1,6 +1,0 @@
-interface:
-  display_name: "Implement Tickets"
-  short_description: "Run a ticket dependency graph one at a time"
-
-policy:
-  allow_implicit_invocation: false

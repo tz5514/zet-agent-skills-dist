@@ -1,5 +1,5 @@
 ---
-description: 自動將 git 中所有未 commit 的變更，依照邏輯分組拆分成多個 commit。觸發條件：僅在使用者本人的訊息明確包含 commit 指令時呼叫（如「commit」「git commit」「做完後幫我 commit」）。禁止觸發：agent 自行判斷應該 commit（如 todo 清單、任務完成、測試通過、流程推進）不構成觸發條件。獨佔規則：所有 git commit 操作一律透過此 skill 執行，禁止手動跑 git commit 命令。
+description: 自動將 git 中所有未 commit 的變更，依照邏輯分組拆分成多個 commit。觸發條件：使用者本人的訊息明確包含 commit 指令（如「commit」「git commit」「做完後幫我 commit」），或使用者已授權執行的其他 skill 其 SKILL.md 明文將 commit／呼叫本 skill 列為流程步驟。禁止觸發：agent 自行判斷應該 commit（如 todo 清單、任務完成、測試通過、流程推進）不構成觸發條件。獨佔規則：所有 git commit 操作一律透過此 skill 執行，禁止手動跑 git commit 命令。
 ---
 
 # 自動拆分 Commit
@@ -17,13 +17,13 @@ description: 自動將 git 中所有未 commit 的變更，依照邏輯分組拆
 
 ### 守衛條件：驗證觸發條件
 
-**在進入任何步驟前，必須檢查使用者的原始指令中是否包含明確的 commit 觸發詞**。
-
-若 ARGUMENTS 不包含以下任何詞彙，直接拒絕執行並回應：
+**在進入任何步驟前，必須確認存在有效授權**。以下任一成立即可進入流程；否則直接拒絕執行並回應：
 ```
-「此 Skill 需要明確的 commit 指示。請在指令中明確說『commit』或『git commit』。」
+「此 Skill 需要明確的 commit 指示。請在指令中明確說『commit』或『git commit』；或透過已授權 skill 的明文 commit 步驟呼叫。」
 ```
 
+有效授權（擇一即可）：
+1. **使用者／委派指令含觸發詞**：ARGUMENTS 或使用者原始指令包含下列任一詞彙
 觸發詞彙清單：
 - `commit`
 - `git commit`
@@ -33,9 +33,11 @@ description: 自動將 git 中所有未 commit 的變更，依照邏輯分組拆
 - `然後 commit`
 - `之後幫我 commit`
 
-**說明**：ARGUMENTS 必須包含上述詞彙才視為有效的 commit 請求。任何非字面詞彙的推理（如「根據對話推斷應該 commit」）都不構成觸發條件。
+2. **其他 skill 的明文步驟**：使用者已授權執行的其他 skill，其 `SKILL.md` 流程中若字面寫明某步驟須做 git commit、或須呼叫本 skill，則到達該步驟時視為有效觸發——授權延伸自使用者對該 skill 的呼叫，不必再等使用者另發一則含 commit 的訊息。判準是「commit／呼叫本 skill」在該 skill 的流程文字中字面存在；agent 自行把「做完後順便 commit」加進流程、或 skill 未寫 commit 卻自行決定要 commit，都不構成觸發。
 
-**Sub-agent 情境的觸發詞來源**：sub-agent 的「使用者訊息」即為派發給它的委派任務指令。委派指令中含字面 commit 觸發詞、且該指令要求執行的 skill 流程以 commit 為明文步驟（如 implement 的收尾 commit）時，視為有效觸發——授權延伸自發起該流程的使用者。判準是「觸發詞在收到的指令文字中字面存在」，與主 agent 情境同一標準；sub-agent 僅憑自身判斷（委派指令無觸發詞）而 commit，同樣不構成觸發。
+**Sub-agent 情境的觸發詞來源**：sub-agent 的「使用者訊息」即為派發給它的委派任務指令。以下任一成立即視為有效觸發——授權延伸自發起該流程的使用者：（1）委派指令中含字面 commit 觸發詞；（2）委派指令要求執行的 skill，其流程以 commit／呼叫本 skill 為明文步驟（如 implement 的收尾 commit）。判準是「觸發詞或 skill 明文步驟在收到的指令／該 skill 文字中字面存在」，與主 agent 情境同一標準；sub-agent 僅憑自身判斷（委派指令無觸發詞、且所執行 skill 亦無明文 commit 步驟）而 commit，同樣不構成觸發。
+
+
 
 ---
 
@@ -50,6 +52,7 @@ description: 自動將 git 中所有未 commit 的變更，依照邏輯分組拆
    - 時序詞接在其他任務描述之後：「做完後 commit」「完成後 commit」「然後 commit」「之後幫我 commit」
    - 並列收尾：「[做某事] 並 commit」「[做某事]，順便 commit」「[做某事] + commit」
    - 若 commit 是指令中**唯一的任務**（例如單純的「commit」「git commit」「幫我 commit」「git commit & push」），一律為互動模式，無論對話中是否有前置作業
+   - 若在 sub-agent 中執行本 skill，則一律強制為自動模式，沒有例外（因為不會有人類互動回覆，停下來就等於導致任務意外中斷失敗）
 
 ### Step 1：蒐集變更資訊
 

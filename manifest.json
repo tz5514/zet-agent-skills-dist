@@ -12,18 +12,24 @@
         "scripts/adr_id.py",
         "scripts/adr_subfolder.py",
         "scripts/atomicity_lint.py",
+        "scripts/check_adr_redundancy.py",
+        "scripts/check_should_write_adr.py",
         "scripts/conflict_disposition.py",
         "scripts/context_derivation.py",
         "scripts/description_index.py",
+        "scripts/finalize_draft_adrs_contract.py",
         "scripts/live_atomic_decision_corpus.py",
+        "scripts/necessity_conditions_authority.py",
         "scripts/preflight_authority_bundle.py",
-        "scripts/produce_for_hitl_contract.py",
+        "scripts/produce_contract.py",
+        "scripts/prompt_fragments.py",
         "scripts/quality_review_contract.py",
         "scripts/review_prompt_assembly.py",
         "scripts/review_verdict_report.py",
-        "scripts/revise_and_promote_contract.py",
         "scripts/revise_contract.py",
         "scripts/scan_candidates.py",
+        "scripts/scan_cycle_contract.py",
+        "scripts/scan_driven_delivery_contract.py",
         "scripts/scan_rewrite_contract.py",
         "scripts/scan_supersession_delivery.py",
         "scripts/scan_supersession_input.py",
@@ -35,14 +41,7 @@
         "scripts/supersession_mark_back.py",
         "scripts/supersession_pairs.py"
       ],
-      "name": "adr"
-    },
-    {
-      "files": [
-        "SKILL.md",
-        "scripts/migrate_adr_format.py"
-      ],
-      "name": "adr-format-migration"
+      "name": "emergent-adr"
     },
     {
       "files": [
@@ -54,6 +53,43 @@
         "scripts/extract_grill_session.py"
       ],
       "name": "extract-grill-session"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "scripts/detect_runtime.py",
+        "scripts/extract_claude_code.py",
+        "scripts/extract_codex.py",
+        "scripts/extract_cursor.py",
+        "scripts/extract_shared.py",
+        "scripts/extract_transcript.py"
+      ],
+      "name": "extract-transcript"
+    },
+    {
+      "files": [
+        "SKILL.md"
+      ],
+      "name": "emergent-design"
+    },
+    {
+      "files": [
+        "ADR-REFERENCE-HANDLING.md",
+        "SKILL.md",
+        "agents/openai.yaml",
+        "scripts/adr_reference_block.py",
+        "scripts/crop_review_conversation.py",
+        "scripts/path_existence_check.py",
+        "templates/related-adrs-blocks.md"
+      ],
+      "name": "emergent-to-spec"
+    },
+    {
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml"
+      ],
+      "name": "emergent-to-tickets"
     },
     {
       "files": [
@@ -78,33 +114,34 @@
       "files": [
         "CONTEXT-FORMAT.md",
         "OUTPUT-FORMAT.md",
-        "SKILL.md",
-        "scripts/hitl_ruling_contract.py"
+        "SKILL.md"
       ],
-      "name": "grill-with-docs"
+      "name": "emergent-grill"
     },
     {
       "files": [
         "SKILL.md",
         "agents/openai.yaml"
       ],
-      "name": "implement"
+      "name": "emergent-implement"
     },
     {
       "files": [
         "SKILL.md",
         "agents/openai.yaml"
       ],
-      "name": "implement-tickets"
+      "name": "emergent-implement-tickets"
     },
     {
       "files": [
-        "GATE-PROMPT.md",
+        "CONVERSATION-DECISIONS-PROMPT.md",
+        "IMPLEMENTATION-READY-PROMPT.md",
+        "SHARED-REVIEW-PROMPT-FRAGMENTS.md",
         "SKILL.md",
         "scripts/prompt_assembly.py",
         "scripts/report_validation.py"
       ],
-      "name": "review-spec"
+      "name": "emergent-spec-review"
     },
     {
       "files": [
@@ -119,17 +156,6 @@
     },
     {
       "files": [
-        "ADR-REFERENCE-HANDLING.md",
-        "SKILL.md",
-        "agents/openai.yaml",
-        "scripts/adr_reference_block.py",
-        "scripts/path_existence_check.py",
-        "templates/related-adrs-blocks.md"
-      ],
-      "name": "to-spec-pro"
-    },
-    {
-      "files": [
         "SKILL.md",
         "scripts/detect_runtime.py",
         "scripts/locate_claude_code.py",
@@ -140,6 +166,6 @@
       "name": "transcript-path"
     }
   ],
-  "source_commit": "c966eb2707175facf4a033c32c4c6b71c63c68f5",
+  "source_commit": "c6e1616039c621ed346a7d3a27a8b9d17e8c2d77",
   "source_dirty": true
 }
