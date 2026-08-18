@@ -1,6 +1,7 @@
 ---
 name: run-long-iteration
 description: 執行可恢復的長期迭代 campaign，以凍結契約、單一變因、evidence gate、原子 checkpoint 與受控 sub-agent wave 維持研究可信度。適用於需要跨多輪或跨 session 的 prompt、模型、效能、正確率、成本或流程研究。
+disable-model-invocation: true
 ---
 
 # Run Long Iteration

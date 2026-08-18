@@ -2,3 +2,5 @@ interface:
   display_name: "Run Long Iteration"
   short_description: "可靠執行跨多輪、跨 session 的長期迭代研究"
   default_prompt: "使用 $run-long-iteration 啟動這個長期迭代研究，建立可恢復狀態並以單一變因循環驗證。"
+policy:
+  allow_implicit_invocation: false

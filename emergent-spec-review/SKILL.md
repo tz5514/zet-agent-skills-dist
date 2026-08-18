@@ -147,26 +147,13 @@ Structural validity is enforced exactly as on the other axis, and against that a
 
 ## Dispatch
 
-Reviewer dispatch, on either axis, reuses the reviewer-dispatch rule this project already field-tested for ADR quality review. The rule's full statement — channel assignment rationale, tier evidence, and the temporary patch's exit conditions — lives in `../emergent-adr/QUALITY-REVIEW-PROMPTS.md` (section "ADR quality-review dispatch parameters"); emergent-spec-review maintains no dispatch policy of its own, and when that shared rule changes, this section follows it. The operative points:
+emergent-spec-review owns reviewer dispatch for every runtime. The rules below are this skill's dispatch policy; they do not follow, cite, or inherit ADR quality-review's shared dispatch file, and a later change to that file does not change this skill.
 
-- **Both at once, both joined:** issue both dispatches before awaiting either result, then join both before continuing — awaiting one reviewer before the other is even dispatched turns the round serial and costs the whole point of two axes. Each dispatch is foreground-synchronous; never background a reviewer.
+- **Both at once, both joined:** issue both dispatches before awaiting either result, then join both before continuing — awaiting one reviewer before the other is even dispatched turns the round serial and costs the whole point of two axes. Each dispatch is foreground-synchronous; never background a reviewer. A dispatch handle is not completion: wait for each reviewer's terminal result before treating that axis as finished.
 - **Prompt-only delivery:** a reviewer receives its assembled prompt file and nothing else — no conversation context, author intent, or repair history beyond what that prompt file itself embeds or points at. A runtime that can pass file content through a non-LLM channel (e.g. shell) brings it in directly; otherwise send only a one-line fixed bootstrap instructing the reviewer to read that file and follow it.
-- **Claude Code** — dispatch through the CLI by piping each assembled prompt file in, starting both before waiting on either:
-
-  ```
-  claude -p --model opus --effort high \
-    --tools Read Write Bash \
-    --permission-mode auto --allowedTools "Read Write Bash" \
-    < <conversation decisions prompt> > <conversation decisions reply> &
-  claude -p --model opus --effort high \
-    --tools Read Write Bash \
-    --permission-mode auto --allowedTools "Read Write Bash" \
-    < <implementation ready prompt> > <implementation ready reply> &
-  wait
-  ```
-
-  The single `wait` is the join, and the shell call itself blocks until both reviewers are done — so the round runs both axes concurrently while still being foreground; never `--bg`. This is the shared rule's temporary patch: in-harness sub-agent dispatch cannot set per-invocation reasoning effort, so a plain sub-agent silently inherits the main session's effort tier. The CLI carries only model and effort — never review rules or prompt content. The default text output suffices; each saved stdout is the reply file its validator resolves.
-- **Codex / Cursor / other runtimes** — dispatch through the runtime's **native sub-agent facility**, never through any CLI, issuing both sub-agent calls in one batch so they run concurrently. Start each reviewer in a fresh sub-agent context with no inherited parent turns and deliver only the fixed bootstrap from the prompt-only rule above; on Codex, pass `fork_turns: "none"` so the parent conversation stays out and the model/effort override is valid. Model and effort follow the shared rule's per-runtime assignments (`gpt-5.6-sol` + `xhigh` on Codex; `cursor-grok-4.6-xhigh` on Cursor; elsewhere the strongest instruction-following model available).
+- **Claude Code** — dispatch each reviewer through the Agent tool, never through any CLI; issue both Agent calls before waiting on either. Each call is a fresh Agent that does not inherit the parent conversation, and sets `subagent_type` to `general-purpose`, `model` to `opus`, and `run_in_background` to `false`. Do not set effort. Do not set a tool set. The Agent tool still requires `description` and `prompt`; `prompt` is only the one-line fixed bootstrap from the prompt-only rule above, never a copy of the assembled prompt file.
+  Each Agent's terminal reply is that axis's reply.
+- **Codex / Cursor / other runtimes** — dispatch through the runtime's **native sub-agent facility**, never through any CLI, issuing both sub-agent calls in one batch so they run concurrently. Start each reviewer in a fresh sub-agent context with no inherited parent turns and deliver only the fixed bootstrap from the prompt-only rule above; on Codex, pass `fork_turns: "none"` so the parent conversation stays out and the model/effort override is valid. This skill assigns `gpt-5.6-sol` + `xhigh` on Codex; `cursor-grok-4.6` + `xhigh` reasoning effort on Cursor; elsewhere the strongest instruction-following model available.
 - **Timeout:** budget from expected full-review duration. A reviewer failure that still closes yields a structured report with `reviewer_close_status: tool_failed`, which the validator rejects; a reviewer that produces no report at all fails the same way. Either outcome goes to the caller's policy and is never silently passed.
 
 ## Boundaries

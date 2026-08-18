@@ -37,8 +37,8 @@ _RUNTIME_POLICIES = {
         "reasoning_effort": "high",
     },
     "cursor": {
-        "model": "cursor-grok-4.6-xhigh",
-        "reasoning_effort": "high",
+        "model": "cursor-grok-4.6",
+        "reasoning_effort": "xhigh",
     },
 }
 
